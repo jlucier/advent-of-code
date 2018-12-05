@@ -11,4 +11,4 @@ for c in claims:
 
     fabric[pad[0]:pad[0]+size[0], pad[1]:pad[1]+size[1]] += 1
 
-print np.sum(fabric >= 2)
+print(np.sum(fabric >= 2))
