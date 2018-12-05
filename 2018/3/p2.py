@@ -17,5 +17,5 @@ for c in claims:
     size = list(map(int, c[c.index(':') + 1:].split('x')))
 
     if np.all(fabric[pad[0]:pad[0]+size[0], pad[1]:pad[1]+size[1]] == 1):
-        print c_id
+        print(c_id)
         break

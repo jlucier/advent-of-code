@@ -1,0 +1,3 @@
+turn on 0,0 through 9,9
+turn off 4,4 through 5,5
+toggle 0,0 through 9,0
