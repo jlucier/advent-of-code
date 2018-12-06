@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime
 
 def parse_dt(log_entry):
@@ -23,13 +24,12 @@ for entry in log:
 
     elif 'wakes' in entry:
         # wake up
-        sleep = g_sleeping.setdefault(curr_guard, dict())
-        for m in range(curr_fall_asleep, dt.minute):
-            sleep[m] = sleep.get(m, 0) + 1
+        sleep = g_sleeping.setdefault(curr_guard, Counter())
+        sleep.update(range(curr_fall_asleep, dt.minute))
 
     else:
         raise Exception('....')
 
 g, sleep = list(sorted(g_sleeping.items(), key=lambda t: sum(t[1].values())))[-1]
-max_min = list(sorted(sleep.items(), key=lambda t: t[1]))[-1][0]
+max_min = sleep.most_common(1)[0][0]
 print(int(g) * max_min)
