@@ -104,3 +104,9 @@ venv.bak/
 .mypy_cache/
 
 *test*
+
+# mac
+.DS_Store
+
+# rust
+*.out
