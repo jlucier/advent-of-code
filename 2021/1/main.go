@@ -7,11 +7,7 @@ import (
 )
 
 func main() {
-  lines, err := utils.ReadLines("inp1.txt")
-
-  if err != nil {
-    panic(err)
-  }
+  lines := utils.ReadLines("inp1.txt")
 
   var readings[] int
 

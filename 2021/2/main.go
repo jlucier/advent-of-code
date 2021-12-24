@@ -13,17 +13,13 @@ func main() {
   pos := 0
   aim := 0
 
-  commands, err := utils.ReadLines("inp.txt")
-
-  if err != nil {
-    panic(err)
-  }
+  commands := utils.ReadLines("inp.txt")
 
   for _, com := range commands {
     tokens := strings.Split(com, " ")
 
     if len(tokens) != 2 {
-      fmt.Errorf("unexpected len: %i", len(tokens))
+      fmt.Errorf("unexpected len: %d", len(tokens))
       panic("wut")
     }
 

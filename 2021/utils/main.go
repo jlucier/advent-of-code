@@ -5,12 +5,12 @@ import (
   "strings"
 )
 
-func ReadLines(filename string) ([]string, error) {
+func ReadLines(filename string) []string {
   var ret []string
   buf, err := ioutil.ReadFile(filename)
 
   if err != nil {
-    return ret, err
+    panic(err)
   }
 
   for _, v := range strings.Split(string(buf), "\n") {
@@ -18,7 +18,7 @@ func ReadLines(filename string) ([]string, error) {
       ret = append(ret, v)
     }
   }
-  return ret, nil
+  return ret
 }
 
 
