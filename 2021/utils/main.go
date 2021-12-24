@@ -14,7 +14,9 @@ func ReadLines(filename string) ([]string, error) {
   }
 
   for _, v := range strings.Split(string(buf), "\n") {
-    ret = append(ret, v)
+    if v != "" {
+      ret = append(ret, v)
+    }
   }
   return ret, nil
 }
