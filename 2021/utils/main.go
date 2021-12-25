@@ -2,6 +2,7 @@ package utils
 
 import (
 	"io/ioutil"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -28,6 +29,24 @@ func Sum(s []int) int {
 		tot += v
 	}
 	return tot
+}
+
+func Max(a, b int) int {
+	return int(math.Max(float64(a), float64(b)))
+}
+
+func Min(a, b int) int {
+	return int(math.Min(float64(a), float64(b)))
+}
+
+func CountWhere(s []int, v int) int {
+	count := 0
+	for _, n := range s {
+		if n == v {
+			count++
+		}
+	}
+	return count
 }
 
 func StrsToInts(str []string) []int {
