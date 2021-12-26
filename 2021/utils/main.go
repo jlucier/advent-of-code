@@ -1,8 +1,10 @@
 package utils
 
 import (
+	"fmt"
 	"io/ioutil"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -79,6 +81,14 @@ func StrsToInts(str []string) []int {
 	return res
 }
 
+func IntsToStrs(ints []int) []string {
+	var res []string
+  for _, v := range ints {
+    res = append(res, fmt.Sprint(v))
+  }
+	return res
+}
+
 var exists = struct{}{}
 
 type IntSet struct {
@@ -91,8 +101,20 @@ func NewIntSet() *IntSet {
 	return s
 }
 
-func (s *IntSet) Add(value int) {
+func (s *IntSet) Size() int {
+  return len(s.m)
+}
+
+func (s *IntSet) Add(value int) *IntSet {
 	s.m[value] = exists
+	return s
+}
+
+func (s *IntSet) AddAll(values[] int) *IntSet {
+  for _, v := range values {
+    s.Add(v)
+  }
+	return s
 }
 
 func (s *IntSet) Remove(value int) {
@@ -111,4 +133,110 @@ func (s *IntSet) ContainsAll(nums []int) bool {
 		}
 	}
 	return true
+}
+
+func (s *IntSet) Values() []int {
+  var vals []int
+  for k := range s.m {
+    vals = append(vals, k)
+  }
+  return vals
+}
+
+func (s *IntSet) Intersect(other *IntSet) {
+  for v := range s.m {
+    if !other.Contains(v) {
+      s.Remove(v)
+    }
+  }
+}
+
+func (s *IntSet) Copy() *IntSet {
+  return NewIntSet().AddAll(s.Values())
+}
+
+func (s *IntSet) ToStr() string {
+  v := s.Values()
+  sort.Sort(sort.IntSlice(v))
+  return fmt.Sprint("IntSet{", strings.Join(IntsToStrs(v), ", "), "}")
+}
+
+func (s *IntSet) Equals(other *IntSet) bool {
+  return s.ContainsAll(other.Values()) && other.ContainsAll(s.Values())
+}
+
+// StrSet
+
+type StrSet struct {
+	m map[string]struct{}
+}
+
+func NewStrSet() *StrSet {
+	s := &StrSet{}
+	s.m = make(map[string]struct{})
+	return s
+}
+
+func (s *StrSet) Size() int {
+  return len(s.m)
+}
+
+func (s *StrSet) Add(value string) *StrSet {
+	s.m[value] = exists
+	return s
+}
+
+func (s *StrSet) AddAll(values[] string) *StrSet {
+  for _, v := range values {
+    s.Add(v)
+  }
+	return s
+}
+
+func (s *StrSet) Remove(value string) {
+	delete(s.m, value)
+}
+
+func (s *StrSet) Contains(value string) bool {
+	_, c := s.m[value]
+	return c
+}
+
+func (s *StrSet) ContainsAll(nums []string) bool {
+	for _, v := range nums {
+		if !s.Contains(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *StrSet) Values() []string {
+  var vals []string
+  for k := range s.m {
+    vals = append(vals, k)
+  }
+  return vals
+}
+
+func (s *StrSet) Intersect(other *StrSet) {
+  for v := range s.m {
+    if !other.Contains(v) {
+      s.Remove(v)
+    }
+  }
+}
+
+func (s *StrSet) Copy() *StrSet {
+  return NewStrSet().AddAll(s.Values())
+}
+
+func (s *StrSet) ToStr() string {
+  v := s.Values()
+  sort.Sort(sort.StringSlice(v))
+  return fmt.Sprint("StrSet{", strings.Join(v, ", "), "}")
+}
+
+func (s *StrSet) Equals(other *StrSet) bool {
+  return s.ContainsAll(other.Values()) && other.ContainsAll(s.Values())
 }
