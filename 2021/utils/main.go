@@ -31,6 +31,24 @@ func Sum(s []int) int {
 	return tot
 }
 
+func MinMax(s []int) (int, int) {
+  min := 0
+  max := 0
+  for _, v := range s {
+    min = Min(min, v)
+    max = Max(max, v)
+  }
+  return min, max
+}
+
+func Range(s int, e int) []int {
+  var ret []int
+  for i := s; i < e; i++ {
+    ret = append(ret, i)
+  }
+  return ret
+}
+
 func Max(a, b int) int {
 	return int(math.Max(float64(a), float64(b)))
 }
