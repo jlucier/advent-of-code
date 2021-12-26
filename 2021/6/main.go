@@ -34,7 +34,7 @@ func main() {
   tot := 0
   cache := Cache{}
   for _, f := range fish {
-    tot += calcfish(f, 80, cache)
+    tot += calcfish(f, 256, cache)
   }
 
   fmt.Println("count:", tot)
