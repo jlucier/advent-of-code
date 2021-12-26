@@ -138,19 +138,6 @@ func prop(segOpts LetterSet, allDigits[]string ) (bool, LetterSet) {
   return false, segOpts
 }
 
-// func validateAtlas(segOpts LetterSet) bool {
-//   for n, segs := range numToSegs {
-//     var digit []string
-//     for _, s := range segs {
-//       digit = append(digit, segOpts[s].Values()[0])
-//     }
-//     if readNum(segOpts, digit) != n {
-//       return false
-//     }
-//   }
-//   return true
-// }
-
 func readNum(segToL LetterSet, digit string) int {
   atlas := map[string]int{}
   for s, ltrs := range segToL {
@@ -218,23 +205,10 @@ func processLine(digits []string , readouts []string) int {
 
   // propagate constraints
   _, opts := prop(segOptions, allDigits)
-  // fmt.Println("WIN?", win)
-  //
-  // fmt.Println("OG OPTS")
-  // for i, opt := range segOptions {
-  //   fmt.Println(i, opt.ToStr())
-  // }
-  //
-  // fmt.Println("Final")
-  // for i, opt := range opts {
-  //   fmt.Println(i, opt.ToStr())
-  // }
 
   num := 0
-  // fmt.Println("READOUT:")
   for i, r := range readouts {
     c := readNum(opts, r)
-    // fmt.Println(i, c)
     num += c * int(math.Pow10(len(readouts) - 1 - i))
   }
   return num
