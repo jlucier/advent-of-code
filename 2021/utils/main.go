@@ -1,36 +1,36 @@
 package utils
 
 import (
-	"fmt"
-	"io/ioutil"
-	"math"
-	"sort"
-	"strconv"
-	"strings"
+  "fmt"
+  "io/ioutil"
+  "math"
+  "sort"
+  "strconv"
+  "strings"
 )
 
 func ReadLines(filename string) []string {
-	var ret []string
-	buf, err := ioutil.ReadFile(filename)
+  var ret []string
+  buf, err := ioutil.ReadFile(filename)
 
-	if err != nil {
-		panic(err)
-	}
+  if err != nil {
+    panic(err)
+  }
 
-	for _, v := range strings.Split(string(buf), "\n") {
-		if v != "" {
-			ret = append(ret, v)
-		}
-	}
-	return ret
+  for _, v := range strings.Split(string(buf), "\n") {
+    if v != "" {
+      ret = append(ret, v)
+    }
+  }
+  return ret
 }
 
 func Sum(s []int) int {
-	tot := 0
-	for _, v := range s {
-		tot += v
-	}
-	return tot
+  tot := 0
+  for _, v := range s {
+    tot += v
+  }
+  return tot
 }
 
 func MinMax(s []int) (int, int) {
@@ -52,11 +52,11 @@ func Range(s int, e int) []int {
 }
 
 func Max(a, b int) int {
-	return int(math.Max(float64(a), float64(b)))
+  return int(math.Max(float64(a), float64(b)))
 }
 
 func Min(a, b int) int {
-	return int(math.Min(float64(a), float64(b)))
+  return int(math.Min(float64(a), float64(b)))
 }
 
 func Clamp(val, min, max int) int {
@@ -64,45 +64,45 @@ func Clamp(val, min, max int) int {
 }
 
 func CountWhere(s []int, v int) int {
-	count := 0
-	for _, n := range s {
-		if n == v {
-			count++
-		}
-	}
-	return count
+  count := 0
+  for _, n := range s {
+    if n == v {
+      count++
+    }
+  }
+  return count
 }
 
 func StrsToInts(str []string) []int {
-	var res []int
-	for _, s := range str {
-		n, err := strconv.Atoi(s)
-		if err != nil {
-			panic(err)
-		}
-		res = append(res, n)
-	}
-	return res
+  var res []int
+  for _, s := range str {
+    n, err := strconv.Atoi(s)
+    if err != nil {
+      panic(err)
+    }
+    res = append(res, n)
+  }
+  return res
 }
 
 func IntsToStrs(ints []int) []string {
-	var res []string
+  var res []string
   for _, v := range ints {
     res = append(res, fmt.Sprint(v))
   }
-	return res
+  return res
 }
 
 var exists = struct{}{}
 
 type IntSet struct {
-	m map[int]struct{}
+  m map[int]struct{}
 }
 
 func NewIntSet() *IntSet {
-	s := &IntSet{}
-	s.m = make(map[int]struct{})
-	return s
+  s := &IntSet{}
+  s.m = make(map[int]struct{})
+  return s
 }
 
 func (s *IntSet) Size() int {
@@ -110,33 +110,33 @@ func (s *IntSet) Size() int {
 }
 
 func (s *IntSet) Add(value int) *IntSet {
-	s.m[value] = exists
-	return s
+  s.m[value] = exists
+  return s
 }
 
 func (s *IntSet) AddAll(values[] int) *IntSet {
   for _, v := range values {
     s.Add(v)
   }
-	return s
+  return s
 }
 
 func (s *IntSet) Remove(value int) {
-	delete(s.m, value)
+  delete(s.m, value)
 }
 
 func (s *IntSet) Contains(value int) bool {
-	_, c := s.m[value]
-	return c
+  _, c := s.m[value]
+  return c
 }
 
 func (s *IntSet) ContainsAll(nums []int) bool {
-	for _, v := range nums {
-		if !s.Contains(v) {
-			return false
-		}
-	}
-	return true
+  for _, v := range nums {
+    if !s.Contains(v) {
+      return false
+    }
+  }
+  return true
 }
 
 func (s *IntSet) Values() []int {
@@ -172,13 +172,13 @@ func (s *IntSet) Equals(other *IntSet) bool {
 // StrSet
 
 type StrSet struct {
-	m map[string]struct{}
+  m map[string]struct{}
 }
 
 func NewStrSet() *StrSet {
-	s := &StrSet{}
-	s.m = make(map[string]struct{})
-	return s
+  s := &StrSet{}
+  s.m = make(map[string]struct{})
+  return s
 }
 
 func (s *StrSet) Size() int {
@@ -186,33 +186,33 @@ func (s *StrSet) Size() int {
 }
 
 func (s *StrSet) Add(value string) *StrSet {
-	s.m[value] = exists
-	return s
+  s.m[value] = exists
+  return s
 }
 
 func (s *StrSet) AddAll(values[] string) *StrSet {
   for _, v := range values {
     s.Add(v)
   }
-	return s
+  return s
 }
 
 func (s *StrSet) Remove(value string) {
-	delete(s.m, value)
+  delete(s.m, value)
 }
 
 func (s *StrSet) Contains(value string) bool {
-	_, c := s.m[value]
-	return c
+  _, c := s.m[value]
+  return c
 }
 
 func (s *StrSet) ContainsAll(nums []string) bool {
-	for _, v := range nums {
-		if !s.Contains(v) {
-			return false
-		}
-	}
-	return true
+  for _, v := range nums {
+    if !s.Contains(v) {
+      return false
+    }
+  }
+  return true
 }
 
 func (s *StrSet) Values() []string {
