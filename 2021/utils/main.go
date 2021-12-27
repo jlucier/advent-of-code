@@ -59,6 +59,10 @@ func Min(a, b int) int {
 	return int(math.Min(float64(a), float64(b)))
 }
 
+func Clamp(val, min, max int) int {
+  return Min(Max(val, min), max)
+}
+
 func CountWhere(s []int, v int) int {
 	count := 0
 	for _, n := range s {
