@@ -4,6 +4,7 @@ import (
   "fmt"
   "sort"
   "strings"
+  "strconv"
 
   "aoc/utils"
 )
@@ -106,23 +107,32 @@ func walkBasin(y int, x int, grid Grid) Basin {
   return points
 }
 
-func printBasin(grid Grid, basin []Point) {
+func printBasins(grid Grid, basins BasinArr) {
+  var lines []string
   for i, r := range grid {
+    var l []string
     for j, v := range r {
       hit := false
-      for _, p := range basin {
-        np := Point{i, j}
-        if p == np {
-          hit = true
-          fmt.Printf("\x1b[31m%d\033[0m", v)
+      for _, b := range basins {
+        for _, p := range b {
+          np := Point{i, j}
+          if p == np {
+            hit = true
+            l = append(l, fmt.Sprintf("\x1b[31m%d\033[0m", v))
+            break
+          }
+          if hit {
+            break
+          }
         }
       }
       if !hit {
-        fmt.Print(v)
+        l = append(l, strconv.Itoa(v))
       }
     }
-    fmt.Println()
+    lines = append(lines, strings.Join(l, ""))
   }
+  fmt.Println(strings.Join(lines, "\n"))
 }
 
 func part1() {
@@ -149,15 +159,12 @@ func part2() {
   sort.Sort(sort.Reverse(basins))
 
   tot := 1
-  for i, b := range basins {
-    if i > 2 {
-      break
-    }
-    // fmt.Println("\nbasin:", i, len(b))
+  for _, b := range basins[:3] {
+    //fmt.Println("\nbasin:", i, len(b))
     tot *= len(b)
-    // printBasin(grid, b)
   }
 
+  printBasins(grid, basins[:3])
   fmt.Println("tot", tot)
 }
 
