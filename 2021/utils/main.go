@@ -157,7 +157,7 @@ func (s *IntSet) Copy() *IntSet {
 
 func (s *IntSet) ToStr() string {
   v := s.Values()
-  sort.Sort(sort.IntSlice(v))
+  sort.Ints(v)
   return fmt.Sprint("IntSet{", strings.Join(IntsToStrs(v), ", "), "}")
 }
 
@@ -233,7 +233,7 @@ func (s *StrSet) Copy() *StrSet {
 
 func (s *StrSet) ToStr() string {
   v := s.Values()
-  sort.Sort(sort.StringSlice(v))
+  sort.Strings(v)
   return fmt.Sprint("StrSet{", strings.Join(v, ", "), "}")
 }
 

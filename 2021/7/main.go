@@ -11,7 +11,7 @@ import (
 
 func part1(nums []int) {
   // find the median, I guess that's the one with lowest cost
-  sort.Sort(sort.IntSlice(nums))
+  sort.Ints(nums)
 
   best := nums[len(nums) / 2]
 
