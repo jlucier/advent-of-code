@@ -39,7 +39,7 @@ func splitWs(str string) []string {
   return res
 }
 
-func boardDone(nums *utils.IntSet, b *Board) bool {
+func boardDone(nums utils.IntSet, b *Board) bool {
   for _, r := range b {
     if nums.ContainsAll(r[:]) {
       return true
@@ -53,7 +53,7 @@ func boardDone(nums *utils.IntSet, b *Board) bool {
   return false
 }
 
-func unmarkedSquares(nums *utils.IntSet, b *Board) []int {
+func unmarkedSquares(nums utils.IntSet, b *Board) []int {
   var ret []int
   for _, r := range b {
     for _, n := range r {

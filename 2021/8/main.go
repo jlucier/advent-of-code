@@ -50,7 +50,7 @@ var lenToNums = map[int][]int{
 }
 
 
-type LetterSet[]*utils.StrSet
+type LetterSet[]utils.StrSet
 
 func parse(lines []string) ([][]string, [][]string) {
   var readouts [][]string
@@ -95,14 +95,14 @@ func prop(segOpts LetterSet, allDigits[]string ) (bool, LetterSet) {
   minSize := math.Inf(1)
   ones := 0
   for s, letters := range segOpts{
-    if letters.Size() == 0 {
+    if len(letters) == 0 {
       return false, segOpts
-    } else if letters.Size() == 1 {
+    } else if len(letters) == 1 {
       ones++
       continue
-    } else if float64(letters.Size()) < minSize {
+    } else if float64(len(letters)) < minSize {
       minS = s
-      minSize = float64(letters.Size())
+      minSize = float64(len(letters))
     }
   }
 
@@ -116,7 +116,7 @@ func prop(segOpts LetterSet, allDigits[]string ) (bool, LetterSet) {
     return true, segOpts
   }
 
-  for _, v := range segOpts[minS].Values() {
+  for v := range segOpts[minS] {
     // pretend we just fix this boi to a value
 
     newOpts := copyLetterSet(segOpts)

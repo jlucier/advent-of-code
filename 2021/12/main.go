@@ -7,7 +7,7 @@ import (
   "aoc/utils"
 )
 
-type AdjList map[string]*utils.StrSet
+type AdjList map[string]utils.StrSet
 type Path struct {
   nodes []string
   counts map[string]int
@@ -123,7 +123,7 @@ func findPaths(adj AdjList, part int) []*Path {
     }
 
     opts, _ := adj[p.Last()]
-    for _, n := range opts.Values() {
+    for n := range opts {
       good := true
       switch part {
         case 1:

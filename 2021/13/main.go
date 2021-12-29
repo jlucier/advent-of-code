@@ -14,44 +14,12 @@ type Fold struct {
   axis string
   index int
 }
-type Point [2]int
-
-type PointSet struct {
-  m map[Point]interface{}
-}
-
-func NewPointSet() *PointSet {
-  ps := &PointSet{}
-  ps.m = make(map[Point]interface{})
-  return ps
-}
-
-func (s *PointSet) Add(p Point) *PointSet {
-  s.m[p] = struct{}{}
-  return s
-}
-
-func (s *PointSet) Remove(p Point) {
-  delete(s.m, p)
-}
-
-func (s *PointSet) Size() int {
-  return len(s.m)
-}
-
-func (s *PointSet) Values() []Point {
-  var points []Point
-  for p := range s.m {
-    points = append(points, p)
-  }
-  return points
-}
 
 // solution
 
-func parseInput(filename string) (*PointSet, []Fold) {
+func parseInput(filename string) (utils.PointSet, []Fold) {
   lines := utils.ReadLines(filename)
-  points := NewPointSet()
+  points := utils.NewPointSet()
   var folds []Fold
   for _, l := range lines {
     if strings.HasPrefix(l, "fold") {
@@ -61,17 +29,16 @@ func parseInput(filename string) (*PointSet, []Fold) {
       folds = append(folds, Fold{comps[0], i})
     } else {
       comps := utils.StrsToInts(strings.Split(l, ","))
-      points.Add(Point{comps[0], comps[1]})
+      points.Add(utils.Point{comps[0], comps[1]})
     }
   }
   return points, folds
 }
 
-func printGrid(ps *PointSet) {
+func printGrid(ps utils.PointSet) {
   maxX := 0
   maxY := 0
-  points := ps.Values()
-  for _, p := range points {
+  for p := range ps {
     maxX = utils.Max(p[0], maxX)
     maxY = utils.Max(p[1], maxY)
   }
@@ -84,7 +51,7 @@ func printGrid(ps *PointSet) {
     }
   }
 
-  for _, p := range points {
+  for p := range ps {
     grid[p[1]][p[0]] = "#"
   }
 
@@ -95,19 +62,19 @@ func printGrid(ps *PointSet) {
   fmt.Println(strings.Join(lines, "\n"))
 }
 
-func fold(ps *PointSet, f Fold) {
+func fold(ps utils.PointSet, f Fold) {
   pi := 0
   if f.axis == "y" {
     pi = 1
   }
 
-  for _, p := range ps.Values() {
+  for p := range ps {
     val := p[pi]
     if val < f.index {
       continue
     }
     ps.Remove(p)
-    newp := Point{p[0], p[1]}
+    newp := utils.Point{p[0], p[1]}
     newp[pi] = f.index - (val - f.index)
     ps.Add(newp)
   }
@@ -118,7 +85,7 @@ func main() {
   for i, f := range folds {
     fold(points, f)
     if i == 0 {
-      fmt.Println("after 1", points.Size())
+      fmt.Println("after 1", len(points))
     }
   }
   printGrid(points)
