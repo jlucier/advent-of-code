@@ -9,6 +9,14 @@ import (
   "strings"
 )
 
+func RedInt(v int) string {
+  return fmt.Sprintf("\x1b[31m%d\033[0m", v)
+}
+
+func Red(s string) string {
+  return fmt.Sprintf("\x1b[31m%s\033[0m", s)
+}
+
 func ReadLines(filename string) []string {
   var ret []string
   buf, err := ioutil.ReadFile(filename)
@@ -271,6 +279,24 @@ func (s IntGrid) Neighbors(p Point) []Point {
     neighbors = append(neighbors, Point{x, y+1})
   }
   return neighbors
+}
+
+func (s IntGrid) ToStrf(format func(Point, int) string) string {
+  lines := make([]string, len(s))
+  for i, r := range s {
+    var l []string
+    for j, v := range r {
+      l = append(l, format(Point{i, j}, v))
+    }
+    lines[i] = strings.Join(l, "")
+  }
+  return strings.Join(lines, "\n")
+}
+
+func (s IntGrid) ToStr() string {
+  return s.ToStrf(func(p Point, v int) string {
+    return strconv.Itoa(v)
+  })
 }
 
 type PointSet map[Point]interface{}

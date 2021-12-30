@@ -118,7 +118,7 @@ func printBasins(grid Grid, basins BasinArr) {
           np := Point{i, j}
           if p == np {
             hit = true
-            l = append(l, fmt.Sprintf("\x1b[31m%d\033[0m", v))
+            l = append(l, utils.RedInt(v))
             break
           }
           if hit {
