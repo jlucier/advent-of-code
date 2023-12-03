@@ -8,6 +8,13 @@ import (
 	"aoc/utils"
 )
 
+type packet struct {
+	version uint64
+	id      uint64
+	value   uint64
+	sub     []packet
+}
+
 func binToDec(bs string) uint64 {
 	i, _ := strconv.ParseUint(bs, 2, 64)
 	return i
@@ -43,21 +50,29 @@ func parseLiteral(s string) (uint64, int) {
 	return binToDec(b.String()), i
 }
 
-func parse(packet string, n int) (uint64, int) {
-	tot := uint64(0)
+func parse(raw string, n int) ([]packet, int) {
 	consumed_bits := 0
+	var pcks []packet
 
-	for len(packet) >= 11 && (n < 0 || n > 0) {
-		version := binToDec(packet[:3])
+	for len(raw) >= 7 && (n < 0 || n > 0) {
+		var result packet
+		result.version = binToDec(raw[:3])
 		n--
-		tot += version
-		typ := binToDec(packet[3:6])
-		remain := packet[6:]
+		result.id = binToDec(raw[3:6])
+		remain := raw[6:]
 		used := 6
+		allZero := true
+		for _, b := range remain {
+			allZero = allZero && b == '0'
+		}
+		if allZero {
+			break
+		}
 
-		if typ == 4 {
-			_, u := parseLiteral(remain)
+		if result.id == 4 {
+			v, u := parseLiteral(remain)
 			used += u
+			result.value = v
 		} else {
 			used += 1
 			// length type
@@ -65,30 +80,102 @@ func parse(packet string, n int) (uint64, int) {
 				l := int(binToDec(remain[1:16]))
 				used += l + 15
 				remain = remain[16:]
-				vsum, _ := parse(remain[:l], -1)
-				tot += vsum
+				sub, _ := parse(remain[:l], -1)
+				result.sub = sub
 			} else {
 				l := binToDec(remain[1:12])
 				remain := remain[12:]
 				used += 11
-				vsum, bits := parse(remain, int(l))
-				tot += vsum
+				sub, bits := parse(remain, int(l))
 				used += bits
+				result.sub = sub
 			}
 		}
 
-		packet = packet[used:]
+		raw = raw[used:]
 		consumed_bits += used
+		pcks = append(pcks, result)
 	}
-	return tot, consumed_bits
+	return pcks, consumed_bits
 }
 
-func p1() {
-	pck := hexTo4Bin(utils.ReadLines("inp.txt")[0])
-	answer, _ := parse(pck, -1)
-	fmt.Println(answer)
+func sumVersion(pck packet) uint64 {
+	tot := pck.version
+	for _, sp := range pck.sub {
+		tot += sumVersion(sp)
+	}
+	return tot
+}
+
+func evaluate(pck packet) uint64 {
+	switch pck.id {
+	case 0:
+		// sum
+		t := uint64(0)
+		for _, sp := range pck.sub {
+			t += evaluate(sp)
+		}
+		return t
+
+	case 1:
+		// prod
+		t := uint64(1)
+		for _, sp := range pck.sub {
+			t *= evaluate(sp)
+		}
+		return t
+
+	case 2:
+		// min
+		t := ^uint64(0)
+		for _, sp := range pck.sub {
+			t = utils.Min(t, evaluate(sp))
+		}
+		return t
+
+	case 3:
+		// max
+		t := uint64(0)
+		for _, sp := range pck.sub {
+			t = utils.Max(t, evaluate(sp))
+		}
+		return t
+
+	case 5:
+		// gt
+		if evaluate(pck.sub[0]) > evaluate(pck.sub[1]) {
+			return 1
+		}
+		return 0
+
+	case 6:
+		// lt
+		if evaluate(pck.sub[0]) < evaluate(pck.sub[1]) {
+			return 1
+		}
+		return 0
+
+	case 7:
+		// eq
+		if evaluate(pck.sub[0]) == evaluate(pck.sub[1]) {
+			return 1
+		}
+		return 0
+
+	case 4:
+		// literal
+		return pck.value
+
+	default:
+		panic("Wut")
+	}
 }
 
 func main() {
-	p1()
+	pck := hexTo4Bin(utils.ReadLines("inp.txt")[0])
+	pcks, _ := parse(pck, -1)
+	pack := pcks[0]
+
+	fmt.Println("p1:", sumVersion(pack))
+	fmt.Println("p2:", evaluate(pack))
 }

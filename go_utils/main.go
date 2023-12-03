@@ -9,7 +9,7 @@ import (
 )
 
 type numeric interface {
-	int | float64
+	int | float64 | uint64
 }
 
 func RedInt(v int) string {
