@@ -73,6 +73,11 @@ func Clamp[T numeric](val, min, max T) T {
 	return Min(Max(val, min), max)
 }
 
+// Return true if a <= val < b
+func Between[T numeric](val, a, b T) bool {
+	return val >= a && val < b
+}
+
 func CountWhere[T comparable](s []T, v T) int {
 	count := 0
 	for _, n := range s {
@@ -81,6 +86,14 @@ func CountWhere[T comparable](s []T, v T) int {
 		}
 	}
 	return count
+}
+
+func StrToInt(str string) int {
+	v, err := strconv.Atoi(str)
+	if err != nil {
+		panic(fmt.Sprintf("%s is not int-able", str))
+	}
+	return v
 }
 
 func StrsToInts(str []string) []int {
