@@ -44,35 +44,17 @@ func p1(fname string) {
 
 func p2(fname string) {
 	cards := utils.ReadLines(fname)
-	// TODO this is really slow. I think we can bank the answers to which
-	// cards get added when processing cardI, the iteratively "expand" until
-	// you run out rather than constantly having to reprocess
 
-	// var answers map[int][]int
-	// // make answer crib
-	// for cardI, ln := range cards {
-	// 	score := numWinners(ln)
-	// 	answers[cardI] = make([]int, score)
-	// 	for i := 1; i < score+1; i++ {
-	// 		answers[cardI][i-1] = cardI + i
-	// 	}
-	// }
-
-	numProcessed := 0
-	cardQueue := utils.Range(0, len(cards))
-
-	for len(cardQueue) > 0 {
-		cardI := cardQueue[0]
-		cardQueue = cardQueue[1:]
-		numProcessed++
-
-		score := numWinners(cards[cardI])
-
-		for i := 1; i < score+1; i++ {
-			cardQueue = append(cardQueue, cardI+i)
+	counts := make([]int, len(cards))
+	for i, c := range cards {
+		counts[i] += 1
+		score := numWinners(c)
+		for j := 1; j < score+1; j++ {
+			counts[i+j] += counts[i]
 		}
 	}
-	fmt.Println("p2:", numProcessed)
+
+	fmt.Println("p2:", utils.Sum(counts))
 }
 
 func main() {
