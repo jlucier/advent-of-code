@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -21,6 +22,11 @@ func Red(s string) string {
 }
 
 func ReadLines(filename string) []string {
+	if strings.HasPrefix(filename, "~/") {
+		home, _ := os.UserHomeDir()
+		filename = filepath.Join(home, filename[2:])
+	}
+
 	var ret []string
 	buf, err := os.ReadFile(filename)
 
@@ -45,7 +51,8 @@ func Sum[T numeric](s []T) T {
 }
 
 func MinMax[T numeric](s []T) (T, T) {
-	var min, max T
+	min := s[0]
+	max := s[0]
 	for _, v := range s {
 		min = Min(min, v)
 		max = Max(max, v)
