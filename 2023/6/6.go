@@ -2,36 +2,17 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 
 	"aoc/utils"
 )
 
-type Race struct {
-	time     int
-	bestDist int
-}
-
-func (self *Race) CalculateDist(pressTime int) int {
-	return pressTime * (self.time - pressTime)
-}
-
-func (self *Race) Outcomes() []int {
-	outcomes := make([]int, self.time+1)
-	for i := 0; i <= self.time; i++ {
-		outcomes[i] = self.CalculateDist(i)
-	}
-	return outcomes
-}
-
-func (self *Race) WaysToWin() int {
-	wins := 0
-	for _, o := range self.Outcomes() {
-		if o > self.bestDist {
-			wins++
-		}
-	}
-	return wins
+func waysToWin(time, bestDist int) int {
+	secondTerm := math.Sqrt(math.Pow(float64(time), 2) - 4.0*float64(bestDist+1))
+	root1 := (float64(time) - secondTerm) / 2
+	root2 := (float64(time) + secondTerm) / 2
+	return int(math.Floor(root2)-math.Ceil(root1)) + 1
 }
 
 func p1(fname string) {
@@ -39,17 +20,12 @@ func p1(fname string) {
 	re := regexp.MustCompile("[0-9]+")
 	times := utils.StrsToInts(re.FindAllString(lines[0], -1))
 	dists := utils.StrsToInts(re.FindAllString(lines[1], -1))
-	races := make([]Race, len(times))
 
+	wins := 1
 	for i := 0; i < len(times); i++ {
-		races[i] = Race{times[i], dists[i]}
+		wins *= waysToWin(times[i], dists[i])
 	}
-	waysToWin := 1
-	for _, r := range races {
-		waysToWin *= r.WaysToWin()
-	}
-
-	fmt.Println("p1:", waysToWin)
+	fmt.Println("p1:", wins)
 }
 
 func p2(fname string) {
@@ -57,8 +33,7 @@ func p2(fname string) {
 	re := regexp.MustCompile("[^0-9]+")
 	time := utils.StrToInt(re.ReplaceAllString(lines[0], ""))
 	dist := utils.StrToInt(re.ReplaceAllString(lines[1], ""))
-	race := Race{time, dist}
-	fmt.Println("p2:", race.WaysToWin())
+	fmt.Println("p2:", waysToWin(time, dist))
 }
 
 func main() {
