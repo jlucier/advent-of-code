@@ -27,14 +27,18 @@ func ReadLines(filename string) []string {
 		filename = filepath.Join(home, filename[2:])
 	}
 
-	var ret []string
 	buf, err := os.ReadFile(filename)
 
 	if err != nil {
 		panic(err)
 	}
 
-	for _, v := range strings.Split(string(buf), "\n") {
+	return ParseLines(string(buf))
+}
+
+func ParseLines(buf string) []string {
+	var ret []string
+	for _, v := range strings.Split(buf, "\n") {
 		if v != "" {
 			ret = append(ret, v)
 		}
