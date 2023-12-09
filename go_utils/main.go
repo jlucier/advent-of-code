@@ -127,6 +127,14 @@ func IntsToStrs(ints []int) []string {
 	return res
 }
 
+func Reversed[T comparable](in []T) []T {
+	out := make([]T, len(in))
+	for i := 0; i < len(out); i++ {
+		out[i] = in[len(in)-i-1]
+	}
+	return out
+}
+
 // Data structures
 
 var exists = struct{}{}
