@@ -13,12 +13,36 @@ type numeric interface {
 	int | float64 | uint64
 }
 
+const (
+	RED_CODE    = "\x1b[31m"
+	GREEN_CODE  = "\x1b[32m"
+	ORANGE_CODE = "\x1b[33m"
+	BLUE_CODE   = "\x1b[36m"
+	NO_CODE     = "\033[0m"
+)
+
 func RedInt(v int) string {
-	return fmt.Sprintf("\x1b[31m%d\033[0m", v)
+	return fmt.Sprintf("%s%d%s", RED_CODE, v, NO_CODE)
 }
 
 func Red(s string) string {
-	return fmt.Sprintf("\x1b[31m%s\033[0m", s)
+	return fmt.Sprintf("%s%s%s", RED_CODE, s, NO_CODE)
+}
+
+func GreenInt(v int) string {
+	return fmt.Sprintf("%s%d%s", GREEN_CODE, v, NO_CODE)
+}
+
+func Green(s string) string {
+	return fmt.Sprintf("%s%s%s", GREEN_CODE, s, NO_CODE)
+}
+
+func BlueInt(v int) string {
+	return fmt.Sprintf("%s%d%s", BLUE_CODE, v, NO_CODE)
+}
+
+func Blue(s string) string {
+	return fmt.Sprintf("%s%s%s", BLUE_CODE, s, NO_CODE)
 }
 
 func ReadLines(filename string) []string {
@@ -143,10 +167,20 @@ type Set[T comparable] struct {
 	m_map map[T]struct{}
 }
 
-func NewSet[T comparable]() Set[T] {
+func EmptySet[T comparable]() Set[T] {
 	return Set[T]{
 		make(map[T]struct{}),
 	}
+}
+
+func NewSet[T comparable](vals []T) Set[T] {
+	s := Set[T]{
+		make(map[T]struct{}, len(vals)),
+	}
+	for _, v := range vals {
+		s.Add(v)
+	}
+	return s
 }
 
 func (s *Set[T]) Size() int {
@@ -169,13 +203,19 @@ func (s *Set[T]) Remove(value T) {
 	delete(s.m_map, value)
 }
 
+func (s *Set[T]) RemoveAll(vals []T) {
+	for _, v := range vals {
+		s.Remove(v)
+	}
+}
+
 func (s *Set[T]) Contains(value T) bool {
 	_, c := s.m_map[value]
 	return c
 }
 
-func (s *Set[T]) ContainsAll(nums []T) bool {
-	for _, v := range nums {
+func (s *Set[T]) ContainsAll(vals []T) bool {
+	for _, v := range vals {
 		if !s.Contains(v) {
 			return false
 		}
@@ -192,16 +232,33 @@ func (s *Set[T]) Values() []T {
 }
 
 // Modify the set such that is only contains elements in common with other
-func (s *Set[T]) Intersect(other Set[T]) {
+func (s *Set[T]) IntersectionUpdate(other []T) {
+	os := NewSet(other)
 	for v := range s.m_map {
-		if !other.Contains(v) {
+		if !os.Contains(v) {
 			s.Remove(v)
 		}
 	}
 }
 
+func (s *Set[T]) Intersection(other []T) Set[T] {
+	res := NewSet(other)
+	res.IntersectionUpdate(s.Values())
+	return res
+}
+
+func (s *Set[T]) DifferenceUpdate(other []T) {
+	s.RemoveAll(other)
+}
+
+func (s *Set[T]) Difference(other []T) Set[T] {
+	res := NewSet(s.Values())
+	res.DifferenceUpdate(other)
+	return res
+}
+
 func (s *Set[T]) Copy() Set[T] {
-	ret := NewSet[T]()
+	ret := EmptySet[T]()
 	ret.AddAll(s.Values())
 	return ret
 }
@@ -220,5 +277,6 @@ func (s *Set[T]) ToStr() string {
 }
 
 func (s *Set[T]) Equals(other *Set[T]) bool {
-	return s.ContainsAll(other.Values()) && other.ContainsAll(s.Values())
+	return s.Size() == other.Size() &&
+		s.ContainsAll(other.Values())
 }

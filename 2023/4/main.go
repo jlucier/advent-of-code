@@ -11,8 +11,8 @@ import (
 
 func numWinners(ln string) int {
 	re := regexp.MustCompile("[0-9]+")
-	winners := utils.NewSet[string]()
-	mine := utils.NewSet[string]()
+	winners := utils.EmptySet[string]()
+	mine := utils.EmptySet[string]()
 
 	// remove prefix
 	ln = ln[strings.Index(ln, ":")+1:]
@@ -27,7 +27,7 @@ func numWinners(ln string) int {
 		mine.Add(myNums[m[0]:m[1]])
 	}
 
-	mine.Intersect(winners)
+	mine.IntersectionUpdate(winners.Values())
 	return mine.Size()
 }
 
