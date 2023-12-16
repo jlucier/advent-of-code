@@ -70,6 +70,27 @@ func ParseLines(buf string) []string {
 	return ret
 }
 
+func SliceEq[T comparable](a []T, b []T) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func Insert[T any](slice []T, i int, v T) []T {
+	if i >= len(slice) {
+		return append(slice, v)
+	}
+	ret := append(slice[:i+1], slice[i:]...)
+	ret[i] = v
+	return ret
+}
+
 func Sum[T numeric](s []T) T {
 	var tot T
 	for _, v := range s {
