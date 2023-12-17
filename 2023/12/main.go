@@ -7,12 +7,6 @@ import (
 	"aoc/utils"
 )
 
-const (
-	WORKING = "."
-	BROKEN  = "#"
-	UNKNOWN = "?"
-)
-
 type Puzzle struct {
 	rows        [][]byte
 	constraints [][]int
@@ -33,58 +27,92 @@ func parseInput(fname string) Puzzle {
 	return puzzle
 }
 
-func getGroupsDamaged(row []byte) []int {
-	var groups []int
-
-	groupLen := 0
-	for _, c := range row {
-		if c == '#' {
-			groupLen++
-		} else if groupLen > 0 {
-			groups = append(groups, groupLen)
-			groupLen = 0
+// NFA solution inspired by others
+// https://github.com/clrfl/AdventOfCode2023/blob/master/12/explanation.ipynb
+func solve(row []byte, constraints []int) int {
+	var sb strings.Builder
+	sb.WriteByte('.')
+	for _, c := range constraints {
+		for i := 0; i < c; i++ {
+			sb.WriteByte('#')
 		}
+		sb.WriteByte('.')
 	}
-	if groupLen > 0 {
-		groups = append(groups, groupLen)
-		groupLen = 0
+
+	states := sb.String()
+	endStates := []int{len(states) - 1, len(states) - 2}
+	currStates := make(map[int]int)
+	currStates[0] = 1
+
+	for _, char := range row {
+		nextStates := make(map[int]int)
+
+		for s, count := range currStates {
+			switch states[s] {
+			case '.':
+				if char == '#' {
+					if s+1 < len(states) {
+						nextStates[s+1] += count
+					}
+				} else {
+					nextStates[s] += count
+					if char == '?' && s+1 < len(states) {
+						nextStates[s+1] += count
+					}
+				}
+			case '#':
+				if s+1 >= len(states) {
+					continue
+				}
+
+				if char == '?' {
+					nextStates[s+1] += count
+				} else {
+					// non-? char, advance if the next state is that char
+					// (means: if we're #, next is ., only advance if .)
+					if states[s+1] == char {
+						nextStates[s+1] += count
+					}
+				}
+			}
+		}
+		currStates = nextStates
 	}
-	return groups
+
+	tot := 0
+	for _, es := range endStates {
+		tot += currStates[es]
+	}
+	return tot
 }
 
-func solve(row []byte, constraints []int) int {
-	firstQ := -1
+func makeP2Inp(r []byte, c []int) ([]byte, []int) {
+	p2r := make([]byte, len(r)*5+4)
+	p2c := make([]int, len(c)*5)
 
-	for i, c := range row {
-		if c == '?' {
-			firstQ = i
-			break
+	ridx := 0
+	cidx := 0
+	for j := 0; j < 5; j++ {
+		for _, v := range r {
+			p2r[ridx] = v
+			ridx++
+		}
+		if j < 4 {
+			p2r[ridx] = '?'
+			ridx++
+		}
+
+		for _, v := range c {
+			p2c[cidx] = v
+			cidx++
 		}
 	}
 
-	if firstQ < 0 {
-		// check constraints
-		if utils.SliceEq(getGroupsDamaged(row), constraints) {
-			return 1
-		}
-		return 0
-	}
-
-	// recurse
-	ways := 0
-	tmp := make([]byte, len(row))
-	copy(tmp, row)
-
-	tmp[firstQ] = '.'
-	ways += solve(tmp, constraints)
-
-	tmp[firstQ] = '#'
-	ways += solve(tmp, constraints)
-	return ways
+	return p2r, p2c
 }
 
 func main() {
-	fname := "~/sync/dev/aoc_inputs/2023/12/ex.txt"
+	fname := "~/sync/dev/aoc_inputs/2023/12/input.txt"
 	puzz := parseInput(fname)
 
 	p1tot := 0
@@ -92,29 +120,8 @@ func main() {
 	for i, r := range puzz.rows {
 		c := puzz.constraints[i]
 		p1tot += solve(r, c)
-
-		p2r := make([]byte, (len(r)+1)*5)
-		p2c := make([]int, len(c)*5)
-
-		ridx := 0
-		cidx := 0
-		for j := 0; j < 5; j++ {
-			for _, v := range r {
-				p2r[ridx] = v
-				ridx++
-			}
-			if j < 4 {
-				p2r[ridx] = '?'
-				ridx++
-			}
-
-			for _, v := range c {
-				p2c[cidx] = v
-				cidx++
-			}
-		}
-		fmt.Println("p2", string(p2r), p2c)
-		// p2tot += solve(p2r, p2c)
+		p2r, p2c := makeP2Inp(r, c)
+		p2tot += solve(p2r, p2c)
 	}
 
 	fmt.Println("p1:", p1tot)
