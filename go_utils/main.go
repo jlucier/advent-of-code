@@ -45,29 +45,44 @@ func Blue(s string) string {
 	return fmt.Sprintf("%s%s%s", BLUE_CODE, s, NO_CODE)
 }
 
-func ReadLines(filename string) []string {
+// Expand a ~ in the path
+func ExpandUser(filename string) string {
 	if strings.HasPrefix(filename, "~/") {
 		home, _ := os.UserHomeDir()
 		filename = filepath.Join(home, filename[2:])
 	}
+	return filename
+}
 
+// Read all non-empty lines from file
+func ReadLines(filename string) []string {
+	lines := ReadAllLines(filename)
+	var ret []string
+	for _, ln := range lines {
+		if ln != "" {
+			ret = append(ret, ln)
+		}
+	}
+	return ret
+}
+
+// Read all lines from file, including empty
+func ReadAllLines(filename string) []string {
+	filename = ExpandUser(filename)
 	buf, err := os.ReadFile(filename)
-
 	if err != nil {
 		panic(err)
 	}
-
 	return ParseLines(string(buf))
 }
 
 func ParseLines(buf string) []string {
 	var ret []string
 	for _, v := range strings.Split(buf, "\n") {
-		if v != "" {
-			ret = append(ret, v)
-		}
+		ret = append(ret, v)
 	}
-	return ret
+	// should be a last empty string in there, remove it
+	return ret[:len(ret)-1]
 }
 
 func SliceEq[T comparable](a []T, b []T) bool {
