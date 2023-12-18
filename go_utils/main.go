@@ -85,6 +85,33 @@ func ParseLines(buf string) []string {
 	return ret[:len(ret)-1]
 }
 
+// Slice stuff
+
+// Transpose rows into cols
+// [abc,def] -> [ad,be,cf]
+func Transpose(m []string) []string {
+	tmp := make([]strings.Builder, len(m[0]))
+	for _, ln := range m {
+		for j, c := range ln {
+			tmp[j].WriteRune(c)
+		}
+	}
+
+	result := make([]string, len(tmp))
+	for i, b := range tmp {
+		result[i] = b.String()
+	}
+	return result
+}
+
+func ReverseAll(m []string) []string {
+	tmp := make([]string, len(m[0]))
+	for i, ln := range m {
+		tmp[i] = string(Reversed([]byte(ln)))
+	}
+	return tmp
+}
+
 func SliceEq[T comparable](a []T, b []T) bool {
 	if len(a) != len(b) {
 		return false
@@ -95,6 +122,14 @@ func SliceEq[T comparable](a []T, b []T) bool {
 		}
 	}
 	return true
+}
+
+func Reversed[T any](in []T) []T {
+	out := make([]T, len(in))
+	for i := 0; i < len(out); i++ {
+		out[i] = in[len(in)-i-1]
+	}
+	return out
 }
 
 func Insert[T any](slice []T, i int, v T) []T {
@@ -123,6 +158,8 @@ func MinMax[T numeric](s []T) (T, T) {
 	}
 	return min, max
 }
+
+// Misc
 
 func Range(s int, e int) []int {
 	var ret []int
@@ -185,14 +222,6 @@ func IntsToStrs(ints []int) []string {
 		res = append(res, fmt.Sprint(v))
 	}
 	return res
-}
-
-func Reversed[T comparable](in []T) []T {
-	out := make([]T, len(in))
-	for i := 0; i < len(out); i++ {
-		out[i] = in[len(in)-i-1]
-	}
-	return out
 }
 
 // Data structures

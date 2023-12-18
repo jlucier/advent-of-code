@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"aoc/utils"
 )
@@ -21,24 +20,6 @@ func parseFile(fname string) [][]string {
 			result[lastI] = append(result[lastI], ln)
 		}
 	}
-	return result
-}
-
-// transpose rows into cols for this map
-func transpose(m []string) []string {
-	tmp := make([]strings.Builder, len(m[0]))
-
-	for _, ln := range m {
-		for j, c := range ln {
-			tmp[j].WriteRune(c)
-		}
-	}
-
-	result := make([]string, len(tmp))
-	for i, b := range tmp {
-		result[i] = b.String()
-	}
-
 	return result
 }
 
@@ -66,7 +47,7 @@ func p1(maps [][]string) {
 		if row >= 0 {
 			tot += (row + 1) * 100
 		} else {
-			col := findMirror(transpose(m))
+			col := findMirror(utils.Transpose(m))
 			tot += col + 1
 		}
 	}
@@ -116,7 +97,7 @@ func p2(maps [][]string) {
 		if row >= 0 {
 			tot += (row + 1) * 100
 		} else {
-			col := findSingleDiff(transpose(m))
+			col := findSingleDiff(utils.Transpose(m))
 			tot += col + 1
 		}
 	}

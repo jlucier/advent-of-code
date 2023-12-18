@@ -47,3 +47,20 @@ func TestDifferenceUpdate(t *testing.T) {
 		t.Fatalf("Difference expected %v got %v", exp, a)
 	}
 }
+
+func TestTranspose(t *testing.T) {
+	in := []string{
+		"abc",
+		"def",
+	}
+	exp := []string{
+		"ad",
+		"be",
+		"cf",
+	}
+
+	res := Transpose(in)
+	if !SliceEq(exp, res) {
+		t.Fatalf("Transpose %v expected %v got %v", in, exp, res)
+	}
+}
