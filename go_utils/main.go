@@ -112,6 +112,16 @@ func ReverseAll(m []string) []string {
 	return tmp
 }
 
+func Filter[T comparable](a []T, predicate func(T, int) bool) []T {
+	var out []T
+	for i, v := range a {
+		if predicate(v, i) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 func SliceEq[T comparable](a []T, b []T) bool {
 	if len(a) != len(b) {
 		return false
@@ -365,4 +375,8 @@ func (self *V2) Sub(other *V2) V2 {
 		self.X - other.X,
 		self.Y - other.Y,
 	}
+}
+
+func (self *V2) Mag() float64 {
+	return math.Sqrt(float64(self.X*self.X + self.Y*self.Y))
 }
