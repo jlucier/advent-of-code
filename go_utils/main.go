@@ -345,3 +345,24 @@ func (s *Set[T]) Equals(other *Set[T]) bool {
 	return s.Size() == other.Size() &&
 		s.ContainsAll(other.Values())
 }
+
+// Vector
+
+type V2 struct {
+	X int
+	Y int
+}
+
+func (self *V2) Add(other *V2) V2 {
+	return V2{
+		self.X + other.X,
+		self.Y + other.Y,
+	}
+}
+
+func (self *V2) Sub(other *V2) V2 {
+	return V2{
+		self.X - other.X,
+		self.Y - other.Y,
+	}
+}
