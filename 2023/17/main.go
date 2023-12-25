@@ -13,7 +13,7 @@ type PriorityQueue []Path
 func (pq PriorityQueue) Len() int { return len(pq) }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].loss < pq[j].loss
+	return pq[i].costEst() < pq[j].costEst()
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -36,14 +36,21 @@ func (pq *PriorityQueue) Pop() any {
 
 type Path struct {
 	pos        utils.V2
-	path       []utils.V2
+	dir        utils.V2
 	nSinceTurn int
 	loss       int
+	h          int
+	w          int
 }
 
 type PathState struct {
 	pos        utils.V2
+	dir        utils.V2
 	nSinceTurn int
+}
+
+func (self *Path) costEst() int {
+	return self.loss + (self.w - self.pos.X) + (self.h - self.pos.Y)
 }
 
 func (self *Path) Print(mp [][]int) {
@@ -56,9 +63,9 @@ func (self *Path) Print(mp [][]int) {
 		lines[y] = sln
 	}
 
-	for _, loc := range self.path {
-		lines[loc.Y][loc.X] = utils.Green(string(lines[loc.Y][loc.X]))
-	}
+	// for _, loc := range self.path {
+	// 	lines[loc.Y][loc.X] = utils.Green(string(lines[loc.Y][loc.X]))
+	// }
 
 	for _, ln := range lines {
 		fmt.Println(strings.Join(ln, ""))
@@ -66,31 +73,19 @@ func (self *Path) Print(mp [][]int) {
 }
 
 func (self *Path) getNextOpts(mp [][]int) []Path {
-	// fmt.Println()
-	// fmt.Println(*self)
-	// self.Print(mp)
-
 	h := len(mp)
 	w := len(mp[0])
 
+	r := utils.V2{X: self.dir.Y, Y: -self.dir.X}
+	l := utils.V2{X: -self.dir.Y, Y: self.dir.X}
 	nextPositions := []utils.V2{
-		{X: self.pos.X - 1, Y: self.pos.Y},
-		{X: self.pos.X, Y: self.pos.Y - 1},
-		{X: self.pos.X + 1, Y: self.pos.Y},
-		{X: self.pos.X, Y: self.pos.Y + 1},
+		self.pos.Add(&self.dir),
+		self.pos.Add(&r),
+		self.pos.Add(&l),
 	}
-	seen := utils.NewSet[utils.V2](self.path)
 	nextPositions = utils.Filter(nextPositions, func(v utils.V2, i int) bool {
-		return v.X >= 0 && v.X < w && v.Y >= 0 && v.Y < h && !seen.Contains(v)
+		return v.X >= 0 && v.X < w && v.Y >= 0 && v.Y < h
 	})
-
-	if len(self.path) > 0 {
-		// lastPos is the one before the current
-		lastPos := self.path[len(self.path)-1]
-		nextPositions = utils.Filter(nextPositions, func(v utils.V2, i int) bool {
-			return v != lastPos
-		})
-	}
 
 	// create paths
 
@@ -98,34 +93,24 @@ func (self *Path) getNextOpts(mp [][]int) []Path {
 	for _, pos := range nextPositions {
 		np := Path{
 			pos,
-			make([]utils.V2, len(self.path)+1),
+			pos.Sub(&self.pos),
 			self.nSinceTurn + 1,
 			self.loss + mp[pos.Y][pos.X],
+			len(mp) - 1,
+			len(mp[0]) - 1,
 		}
-		copy(np.path, self.path)
-		np.path[len(np.path)-1] = self.pos
 
 		// check straights
-		if len(np.path) >= 2 {
-			// np.path = np.path[len(np.path)-2:]
-			tmp := pos.Sub(&np.path[len(np.path)-2])
-			if tmp.X != 0 && tmp.Y != 0 {
-				// we've turned on this move
-				np.nSinceTurn = 1
-			} else if np.nSinceTurn > 3 {
-				// can't use this path since it doesn't turn
-				continue
-			}
+		if self.dir != np.dir {
+			// we've turned on this move
+			np.nSinceTurn = 1
+		} else if np.nSinceTurn > 3 {
+			// can't use this path since it doesn't turn
+			continue
 		}
-
 		// good to add
 		paths = append(paths, np)
 	}
-	// fmt.Println("new paths")
-	// for _, p := range paths {
-	// 	fmt.Println(p)
-	// }
-	// fmt.Scanln()
 	return paths
 }
 
@@ -139,50 +124,68 @@ func parseMap(fname string) [][]int {
 	return mp
 }
 
+func printMap(mp [][]int, hl []utils.V2) {
+	lines := make([][]string, len(mp))
+	for y, ln := range mp {
+		sln := utils.IntsToStrs(ln)
+		lines[y] = sln
+	}
+	for _, v := range hl {
+		lines[v.Y][v.X] = utils.Red(lines[v.Y][v.X])
+	}
+	for _, ln := range lines {
+		fmt.Println(strings.Join(ln, ""))
+	}
+}
+
 func findBestPath(mp [][]int) int {
 	paths := PriorityQueue{{
 		utils.V2{X: 0, Y: 0},
-		[]utils.V2{},
+		utils.V2{X: 1, Y: 0},
 		1,
 		0,
+		len(mp) - 1,
+		len(mp[0]) - 1,
+	}, {
+		utils.V2{X: 0, Y: 0},
+		utils.V2{X: 0, Y: 1},
+		1,
+		0,
+		len(mp) - 1,
+		len(mp[0]) - 1,
 	}}
 	heap.Init(&paths)
 
 	bests := make(map[PathState]int)
 	npaths := 0
 
-	for len(paths) > 0 {
+	for paths.Len() > 0 {
 		p := heap.Pop(&paths).(Path)
-		st := PathState{p.pos, p.nSinceTurn}
-		// st := p.pos
+		st := PathState{p.pos, p.dir, p.nSinceTurn}
 
-		if bests[st] == 0 {
-			bests[st] = p.loss
-		} else {
-			if bests[st] < p.loss {
-				continue
-			}
-			bests[st] = utils.Min(bests[st], p.loss)
+		if bests[st] != 0 && bests[st] < p.costEst() {
+			continue
 		}
+		bests[st] = p.costEst()
 
 		if p.pos.X == len(mp[0])-1 && p.pos.Y == len(mp)-1 {
-			fmt.Println("done", p.loss)
-			p.Print(mp)
+			fmt.Println("done", npaths)
 			return p.loss
 		}
 
+		if npaths%1000000 == 0 {
+			fmt.Println("processed", npaths, len(paths), p.pos)
+			opts := utils.EmptySet[utils.V2]()
+			for _, op := range paths {
+				opts.Add(op.pos)
+			}
+			printMap(mp, opts.Values())
+		}
 		for _, np := range p.getNextOpts(mp) {
-			npSt := PathState{np.pos, np.nSinceTurn}
-			if bests[npSt] == 0 || bests[npSt] > np.loss {
+			npSt := PathState{np.pos, np.dir, np.nSinceTurn}
+			if bests[npSt] == 0 || bests[npSt] > np.costEst() {
 				heap.Push(&paths, np)
 			}
-		}
-		if npaths%100000 == 0 {
-			fmt.Println("processed", npaths, len(paths))
-			// fmt.Println(p.pos, p.loss)
-			// // p.Print(mp)
-			// fmt.Println()
-			// fmt.Scanln()
 		}
 		npaths++
 	}
