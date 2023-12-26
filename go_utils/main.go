@@ -377,6 +377,31 @@ func (self *V2) Sub(other *V2) V2 {
 	}
 }
 
+func (self *V2) Mul(v int) V2 {
+	return V2{
+		self.X * v,
+		self.Y * v,
+	}
+}
+
+func (self *V2) Div(v int) V2 {
+	return V2{
+		self.X / v,
+		self.Y / v,
+	}
+}
+
+func (self *V2) Divf64(v float64) V2 {
+	return V2{
+		int(math.Round(float64(self.X) / v)),
+		int(math.Round(float64(self.Y) / v)),
+	}
+}
+
 func (self *V2) Mag() float64 {
 	return math.Sqrt(float64(self.X*self.X + self.Y*self.Y))
+}
+
+func (self *V2) Unit() V2 {
+	return self.Divf64(self.Mag())
 }

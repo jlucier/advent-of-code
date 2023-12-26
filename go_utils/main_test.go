@@ -64,3 +64,21 @@ func TestTranspose(t *testing.T) {
 		t.Fatalf("Transpose %v expected %v got %v", in, exp, res)
 	}
 }
+
+func TestV2Sub(t *testing.T) {
+	a := V2{1, 1}
+	b := V2{0, 1}
+	exp := V2{1, 0}
+	c := a.Sub(&b)
+	if c != exp {
+		t.Fatalf("Wrong vsub %v - %v expected %v got %v", a, b, exp, c)
+	}
+}
+
+func TestV2Unit(t *testing.T) {
+	a := V2{0, 10}
+	exp := V2{0, 1}
+	if a.Unit() != exp {
+		t.Fatalf("Wrong unit for %v expected %v got %v", a, exp, a.Unit())
+	}
+}
