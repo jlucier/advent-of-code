@@ -187,6 +187,10 @@ func Min[T numeric](a, b T) T {
 	return T(math.Min(float64(a), float64(b)))
 }
 
+func IntAbs(v int) int {
+	return int(math.Abs(float64(v)))
+}
+
 func Clamp[T numeric](val, min, max T) T {
 	return Min(Max(val, min), max)
 }
@@ -404,4 +408,12 @@ func (self *V2) Mag() float64 {
 
 func (self *V2) Unit() V2 {
 	return self.Divf64(self.Mag())
+}
+
+func GridAt[T any](gd [][]T, c V2) T {
+	return gd[c.Y][c.X]
+}
+
+func InBounds[T any](gd [][]T, c V2) bool {
+	return Between(c.Y, 0, len(gd)) && Between(c.X, 0, len(gd[0]))
 }
