@@ -37,10 +37,17 @@ func (self *Node) isStartingState() bool {
 	}
 }
 
+func (self *Node) Reset() {
+	self.flipState = LOW
+	for k := range self.conjState {
+		self.conjState[k] = LOW
+	}
+}
+
 func (self *Node) Receive(p Pulse) int {
 	switch self.typ {
 	case "%":
-		if p.val == 1 {
+		if p.val == HIGH {
 			return NO_PULSE
 		}
 		if self.flipState == HIGH {
@@ -122,12 +129,12 @@ func parse(fname string) ([]Node, map[string]int) {
 }
 
 type Result struct {
-	low   int
-	high  int
-	rxLow bool
+	low     int
+	high    int
+	gotHigh bool
 }
 
-func run(nodes []Node, nameMap map[string]int) Result {
+func run(nodes []Node, nameMap map[string]int, lookFor string) Result {
 	res := Result{low: 1, high: 0}
 	queue := []Pulse{{"button", "broadcaster", LOW}}
 
@@ -142,6 +149,10 @@ func run(nodes []Node, nameMap map[string]int) Result {
 
 		n := &nodes[i]
 		rv := n.Receive(p)
+		if n.name == lookFor && rv == HIGH {
+			res.gotHigh = true
+			return res
+		}
 
 		if rv == NO_PULSE {
 			continue
@@ -152,9 +163,6 @@ func run(nodes []Node, nameMap map[string]int) Result {
 				res.high++
 			} else {
 				res.low++
-				if next == "rx" {
-					res.rxLow = true
-				}
 			}
 			queue = append(queue, Pulse{
 				src:  n.name,
@@ -173,7 +181,7 @@ func p1(fname string) {
 	var cycle []Result
 
 	for i := 0; i < 1000; i++ {
-		r := run(nodes, nameMap)
+		r := run(nodes, nameMap, "")
 
 		cycleTot.low += r.low
 		cycleTot.high += r.high
@@ -201,15 +209,50 @@ func p1(fname string) {
 	fmt.Println("p1:", len(cycle), low*high)
 }
 
-func p2(fname string) {
-	nodes, nameMap := parse(fname)
-	for i := 1; true; i++ {
-		r := run(nodes, nameMap)
-		if r.rxLow {
-			fmt.Println("p2:", i)
-			return
+type Req struct {
+	name   string
+	output int
+}
+
+func findRx(nodes []Node) int {
+	for i := range nodes {
+		n := &nodes[i]
+		for _, o := range n.outputs {
+			if o == "rx" {
+				return i
+			}
 		}
 	}
+	return -1
+}
+
+func p2(fname string) {
+	nodes, nameMap := parse(fname)
+	lookFor := make(map[string]int)
+	lookFor["kk"] = 0
+	lookFor["gl"] = 0
+	lookFor["bb"] = 0
+	lookFor["mr"] = 0
+
+	for l := range lookFor {
+		for i := range nodes {
+			nodes[i].Reset()
+		}
+
+		for i := 0; i < 10000; i++ {
+			r := run(nodes, nameMap, l)
+			if r.gotHigh {
+				lookFor[l] = i + 1
+				break
+			}
+		}
+	}
+
+	presses := 1
+	for _, v := range lookFor {
+		presses *= v
+	}
+	fmt.Println("p2:", presses)
 }
 
 func main() {
