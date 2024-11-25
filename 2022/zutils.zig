@@ -13,7 +13,7 @@ pub fn expandHomeDir(allocator: std.mem.Allocator, pathname: []const u8) ![]u8 {
     return allocator.dupe(u8, pathname);
 }
 
-const LineList = struct {
+pub const LineList = struct {
     lines: std.ArrayList([]u8),
     allocator: std.mem.Allocator,
 
