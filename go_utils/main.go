@@ -425,3 +425,45 @@ func GridAt[T any](gd [][]T, c V2) T {
 func InBounds[T any](gd [][]T, c V2) bool {
 	return Between(c.Y, 0, len(gd)) && Between(c.X, 0, len(gd[0]))
 }
+
+type Grid[T any] struct {
+	Cells [][]T
+}
+
+func (self *Grid[T]) H() int {
+	return len(self.Cells)
+}
+
+func (self *Grid[T]) W() int {
+	return len(self.Cells[0])
+}
+
+func (self *Grid[T]) At(v V2) T {
+	return self.Cells[v.Y][v.X]
+}
+
+func (self *Grid[T]) InBounds(v V2) bool {
+	return Between(v.Y, 0, self.H()) && Between(v.X, 0, self.W())
+}
+
+func (self *Grid[T]) Neighbors(v V2, diag bool) []V2 {
+	nb := []V2{
+		{X: v.X + 1, Y: v.Y},
+		{X: v.X - 1, Y: v.Y},
+		{X: v.X, Y: v.Y + 1},
+		{X: v.X, Y: v.Y - 1},
+	}
+
+	if diag {
+		nb = append(nb, []V2{
+			{X: v.X + 1, Y: v.Y + 1},
+			{X: v.X + 1, Y: v.Y - 1},
+			{X: v.X - 1, Y: v.Y + 1},
+			{X: v.X - 1, Y: v.Y - 1},
+		}...)
+	}
+
+	return Filter(nb, func(v V2, i int) bool {
+		return self.InBounds(v)
+	})
+}
