@@ -87,7 +87,7 @@ pub fn main() void {
     var p1: u32 = 0;
     var p2: u32 = 0;
 
-    for (ll.lines.items) |ln| {
+    for (ll.strings.items) |ln| {
         if (ln.len != 3) {
             std.debug.print("Unexpected length of line: {d} {s}\n", .{ ln.len, ln });
             return;

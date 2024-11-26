@@ -12,7 +12,7 @@ pub fn main() void {
     var curr: u32 = 0;
     var totals = std.ArrayList(u32).init(allocator);
 
-    for (ll.lines.items) |ln| {
+    for (ll.strings.items) |ln| {
         if (ln.len == 0) {
             totals.append(curr) catch {
                 std.debug.print("Failed to grow array\n", .{});

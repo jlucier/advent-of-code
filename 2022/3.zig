@@ -103,7 +103,7 @@ pub fn main() void {
     defer ll.deinit();
 
     // p1
-    const p1 = p1Sacks(ll.lines.items) catch {
+    const p1 = p1Sacks(ll.strings.items) catch {
         std.debug.print("Failed to process\n", .{});
         return;
     };
@@ -113,8 +113,8 @@ pub fn main() void {
 
     var i: u32 = 0;
     var p2: u32 = 0;
-    while (i < ll.lines.items.len) : (i += 3) {
-        p2 += getBadge(std.heap.page_allocator, ll.lines.items[i .. i + 3]) catch {
+    while (i < ll.size()) : (i += 3) {
+        p2 += getBadge(std.heap.page_allocator, ll.strings.items[i .. i + 3]) catch {
             std.debug.print("Failed to get badge on input {d}", .{i});
             return;
         };

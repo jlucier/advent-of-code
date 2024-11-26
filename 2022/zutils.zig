@@ -13,24 +13,28 @@ pub fn expandHomeDir(allocator: std.mem.Allocator, pathname: []const u8) ![]u8 {
     return allocator.dupe(u8, pathname);
 }
 
-pub const LineList = struct {
-    lines: std.ArrayList([]u8),
+pub const StringList = struct {
+    strings: std.ArrayList([]u8),
     allocator: std.mem.Allocator,
 
-    pub fn init(alloc: std.mem.Allocator) LineList {
-        return LineList{ .lines = std.ArrayList([]u8).init(alloc), .allocator = alloc };
+    pub fn init(alloc: std.mem.Allocator) StringList {
+        return StringList{ .strings = std.ArrayList([]u8).init(alloc), .allocator = alloc };
     }
 
-    pub fn deinit(self: *const LineList) void {
-        for (self.lines.items) |ln| {
-            self.allocator.free(ln);
+    pub fn deinit(self: *const StringList) void {
+        for (self.strings.items) |s| {
+            self.allocator.free(s);
         }
-        self.lines.deinit();
+        self.strings.deinit();
+    }
+
+    pub fn size(self: *const StringList) usize {
+        return self.strings.items.len;
     }
 };
 
 /// Read lines of a file. ArrayList and strings inside are owned by caller
-pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !LineList {
+pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !StringList {
     const path = try expandHomeDir(allocator, pathname);
     defer allocator.free(path);
 
@@ -38,12 +42,12 @@ pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !LineList {
     defer file.close();
     const reader = file.reader();
 
-    var ll = LineList.init(allocator);
+    var ll = StringList.init(allocator);
     while (true) {
         const ln = try reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 1_000_000);
 
         if (ln) |l| {
-            try ll.lines.append(l);
+            try ll.strings.append(l);
         } else {
             break;
         }
@@ -54,6 +58,22 @@ pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !LineList {
 
 // Slices
 
+/// Returns a StringList for the caller to own
+pub fn splitIntoList(allocator: std.mem.Allocator, str: []const u8, delimiter: []const u8) !StringList {
+    var parts = StringList.init(allocator);
+
+    var iter = std.mem.splitSequence(u8, str, delimiter);
+
+    while (iter.peek() != null) {
+        if (iter.next()) |part| {
+            try parts.strings.append(try allocator.dupe(u8, part));
+        }
+    }
+
+    return parts;
+}
+
+/// Add up the values of a slice
 pub fn sum(comptime T: type, slice: []const T) T {
     var s: T = 0;
     for (slice) |el| s += el;
@@ -91,11 +111,20 @@ test "read lines" {
     const ll = try readLines(std.testing.allocator, f);
     defer ll.deinit();
 
-    try std.testing.expect(std.mem.eql(u8, ll.lines.items[0], "1000"));
-    try std.testing.expect(std.mem.eql(u8, ll.lines.items[1], "2000"));
-    try std.testing.expect(std.mem.eql(u8, ll.lines.items[2], "3000"));
-    try std.testing.expect(std.mem.eql(u8, ll.lines.items[3], ""));
-    try std.testing.expect(std.mem.eql(u8, ll.lines.items[4], "4000"));
+    try std.testing.expect(std.mem.eql(u8, ll.strings.items[0], "1000"));
+    try std.testing.expect(std.mem.eql(u8, ll.strings.items[1], "2000"));
+    try std.testing.expect(std.mem.eql(u8, ll.strings.items[2], "3000"));
+    try std.testing.expect(std.mem.eql(u8, ll.strings.items[3], ""));
+    try std.testing.expect(std.mem.eql(u8, ll.strings.items[4], "4000"));
+}
+
+test "splitIntoList" {
+    const list = try splitIntoList(std.testing.allocator, "testing-123", "-");
+    defer list.deinit();
+
+    try std.testing.expectEqual(2, list.size());
+    try std.testing.expect(std.mem.eql(u8, list.strings.items[0], "testing"));
+    try std.testing.expect(std.mem.eql(u8, list.strings.items[1], "123"));
 }
 
 test "sum" {
