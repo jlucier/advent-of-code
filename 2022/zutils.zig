@@ -33,12 +33,16 @@ pub const StringList = struct {
     }
 };
 
-/// Read lines of a file. ArrayList and strings inside are owned by caller
-pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !StringList {
+/// Open a file using a path that may need expanding. File is callers to manage
+pub fn openFile(allocator: std.mem.Allocator, pathname: []const u8, flags: std.fs.File.OpenFlags) !std.fs.File {
     const path = try expandHomeDir(allocator, pathname);
     defer allocator.free(path);
+    return std.fs.openFileAbsolute(path, flags);
+}
 
-    const file = try std.fs.openFileAbsolute(path, .{ .mode = .read_only });
+/// Read lines of a file. ArrayList and strings inside are owned by caller
+pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !StringList {
+    const file = try openFile(allocator, pathname, .{ .mode = .read_only });
     defer file.close();
     const reader = file.reader();
 
@@ -81,6 +85,12 @@ pub fn splitLines(allocator: std.mem.Allocator, str: []const u8) !StringList {
 pub fn sum(comptime T: type, slice: []const T) T {
     var s: T = 0;
     for (slice) |el| s += el;
+    return s;
+}
+
+pub fn countNonzero(comptime T: type, slice: []const T) usize {
+    var s: usize = 0;
+    for (slice) |el| s += if (el != 0) 1 else 0;
     return s;
 }
 
@@ -133,8 +143,13 @@ test "splitIntoList" {
 
 test "sum" {
     const a = [_]u8{ 1, 2, 3, 4 };
-    try std.testing.expectEqual(sum(u8, &a), 10);
+    try std.testing.expectEqual(10, sum(u8, &a));
 
     const b = [_]i32{ -1, 2, 3, -4 };
-    try std.testing.expectEqual(sum(i32, &b), 0);
+    try std.testing.expectEqual(0, sum(i32, &b));
+}
+
+test "countNonzero" {
+    const a = [_]i8{ 0, 1, -3, 0 };
+    try std.testing.expectEqual(2, countNonzero(i8, &a));
 }
