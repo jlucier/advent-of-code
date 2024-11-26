@@ -73,6 +73,10 @@ pub fn splitIntoList(allocator: std.mem.Allocator, str: []const u8, delimiter: [
     return parts;
 }
 
+pub fn splitLines(allocator: std.mem.Allocator, str: []const u8) !StringList {
+    return splitIntoList(allocator, str, "\n");
+}
+
 /// Add up the values of a slice
 pub fn sum(comptime T: type, slice: []const T) T {
     var s: T = 0;
