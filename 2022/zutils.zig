@@ -15,15 +15,14 @@ pub fn expandHomeDir(allocator: std.mem.Allocator, pathname: []const u8) ![]u8 {
 
 pub const StringList = struct {
     strings: std.ArrayList([]u8),
-    allocator: std.mem.Allocator,
 
     pub fn init(alloc: std.mem.Allocator) StringList {
-        return StringList{ .strings = std.ArrayList([]u8).init(alloc), .allocator = alloc };
+        return StringList{ .strings = std.ArrayList([]u8).init(alloc) };
     }
 
     pub fn deinit(self: *const StringList) void {
         for (self.strings.items) |s| {
-            self.allocator.free(s);
+            self.strings.allocator.free(s);
         }
         self.strings.deinit();
     }
@@ -92,6 +91,14 @@ pub fn countNonzero(comptime T: type, slice: []const T) usize {
     var s: usize = 0;
     for (slice) |el| s += if (el != 0) 1 else 0;
     return s;
+}
+
+pub fn min(comptime T: type, a: T, b: T) T {
+    return if (a < b) a else b;
+}
+
+pub fn max(comptime T: type, a: T, b: T) T {
+    return if (a > b) a else b;
 }
 
 // TESTS
