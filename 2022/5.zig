@@ -94,27 +94,25 @@ fn parseInstruction(str: []const u8) !Instruction {
     var stage: u8 = 0;
     var inst = Instruction{};
 
-    while (iter.peek() != null) {
-        if (iter.next()) |p| {
-            const v = std.fmt.parseUnsigned(usize, p, 10) catch {
-                continue;
-            };
+    while (iter.next()) |p| {
+        const v = std.fmt.parseUnsigned(usize, p, 10) catch {
+            continue;
+        };
 
-            // have int
-            switch (stage) {
-                0 => {
-                    inst.n = v;
-                },
-                1 => {
-                    inst.from = v - 1;
-                },
-                2 => {
-                    inst.to = v - 1;
-                },
-                else => unreachable,
-            }
-            stage += 1;
+        // have int
+        switch (stage) {
+            0 => {
+                inst.n = v;
+            },
+            1 => {
+                inst.from = v - 1;
+            },
+            2 => {
+                inst.to = v - 1;
+            },
+            else => unreachable,
         }
+        stage += 1;
     }
     return inst;
 }

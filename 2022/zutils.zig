@@ -67,10 +67,8 @@ pub fn splitIntoList(allocator: std.mem.Allocator, str: []const u8, delimiter: [
 
     var iter = std.mem.splitSequence(u8, str, delimiter);
 
-    while (iter.peek() != null) {
-        if (iter.next()) |part| {
-            try parts.strings.append(try allocator.dupe(u8, part));
-        }
+    while (iter.next()) |part| {
+        try parts.strings.append(try allocator.dupe(u8, part));
     }
 
     return parts;
@@ -93,12 +91,62 @@ pub fn countNonzero(comptime T: type, slice: []const T) usize {
     return s;
 }
 
+// Math
+
 pub fn min(comptime T: type, a: T, b: T) T {
     return if (a < b) a else b;
 }
 
 pub fn max(comptime T: type, a: T, b: T) T {
     return if (a > b) a else b;
+}
+
+// Grid
+
+pub fn Grid(comptime T: type) type {
+    return struct {
+        allocator: std.mem.Allocator,
+        nrows: usize,
+        ncols: usize,
+        data: []T,
+
+        const Self = @This();
+
+        pub fn init(allocator: std.mem.Allocator, rows: usize, cols: usize) !Self {
+            return .{
+                .allocator = allocator,
+                .nrows = rows,
+                .ncols = cols,
+                .data = try allocator.alloc(T, rows * cols),
+            };
+        }
+
+        pub fn deinit(self: *const Self) void {
+            self.allocator.free(self.data);
+        }
+
+        pub fn at(self: *const Self, row: usize, col: usize) T {
+            return self.data[row * self.ncols + col];
+        }
+
+        pub fn atPtr(self: *Self, row: usize, col: usize) *T {
+            return &self.data[row * self.ncols + col];
+        }
+
+        pub fn print(self: *const Self) void {
+            std.debug.print("<Grid({}) {d}x{d}\n", .{ T, self.nrows, self.ncols });
+            var i: usize = 0;
+            while (i < self.nrows) : (i += 1) {
+                var j: usize = 0;
+                std.debug.print("  ", .{});
+                while (j < self.ncols) : (j += 1) {
+                    std.debug.print("{}{s}", .{ self.at(i, j), if (j + 1 >= self.ncols) "" else " " });
+                }
+                std.debug.print("\n", .{});
+            }
+            std.debug.print(">\n", .{});
+        }
+    };
 }
 
 // TESTS

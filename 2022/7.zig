@@ -107,15 +107,13 @@ fn parseOutputLine(line: []const u8) [2][]const u8 {
     var iter = std.mem.splitScalar(u8, line, ' ');
     var parts: [2][]const u8 = undefined;
     var p: u8 = 0;
-    while (iter.peek() != null) {
-        if (iter.next()) |part| {
-            if (std.mem.eql(u8, part, "$")) {
-                continue;
-            }
-
-            parts[p] = part;
-            p += 1;
+    while (iter.next()) |part| {
+        if (std.mem.eql(u8, part, "$")) {
+            continue;
         }
+
+        parts[p] = part;
+        p += 1;
     }
     return parts;
 }
