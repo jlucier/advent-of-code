@@ -303,7 +303,7 @@ test "expand home" {
 }
 
 test "read lines" {
-    const f = try std.fs.cwd().realpathAlloc(std.testing.allocator, "test.txt");
+    const f = try std.fs.cwd().realpathAlloc(std.testing.allocator, "zutils/test.txt");
     defer std.testing.allocator.free(f);
 
     const ll = try readLines(std.testing.allocator, f);

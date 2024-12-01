@@ -1,5 +1,5 @@
 const std = @import("std");
-const zutils = @import("zutils.zig");
+const zutils = @import("zutils");
 
 /// Returns u8 [1,52]
 fn charToPriority(ch: u8) u8 {

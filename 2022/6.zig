@@ -1,5 +1,5 @@
 const std = @import("std");
-const zutils = @import("zutils.zig");
+const zutils = @import("zutils");
 
 const ASCII_A = 97;
 

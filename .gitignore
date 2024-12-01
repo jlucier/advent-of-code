@@ -110,4 +110,6 @@ venv.bak/
 
 # rust
 *.out
-*.txt
+
+# zig
+.zig-cache

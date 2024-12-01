@@ -1,5 +1,5 @@
 const std = @import("std");
-const zutils = @import("zutils.zig");
+const zutils = @import("zutils");
 
 pub fn main() void {
     const allocator = std.heap.page_allocator;

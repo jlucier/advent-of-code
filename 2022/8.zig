@@ -1,5 +1,5 @@
 const std = @import("std");
-const zutils = @import("zutils.zig");
+const zutils = @import("zutils");
 
 const Grid = zutils.Grid(u8);
 

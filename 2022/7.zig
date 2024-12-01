@@ -1,5 +1,5 @@
 const std = @import("std");
-const zutils = @import("zutils.zig");
+const zutils = @import("zutils");
 
 const TOTAL_DISK = 70000000;
 const NEEDED_DISK = 30000000;
