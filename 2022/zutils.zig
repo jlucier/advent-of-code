@@ -101,6 +101,10 @@ pub fn max(comptime T: type, a: T, b: T) T {
     return if (a > b) a else b;
 }
 
+pub fn abs(comptime T: type, a: T) T {
+    return if (a >= 0) a else -a;
+}
+
 // Grid
 
 pub fn Grid(comptime T: type) type {
@@ -145,6 +149,131 @@ pub fn Grid(comptime T: type) type {
                 std.debug.print("\n", .{});
             }
             std.debug.print(">\n", .{});
+        }
+    };
+}
+
+pub fn V2(comptime T: type) type {
+    return struct {
+        x: T = 0,
+        y: T = 0,
+
+        pub const ValueT = T;
+        const Self = @This();
+
+        pub fn clone(self: *const Self) Self {
+            return .{ .x = self.x, .y = self.y };
+        }
+
+        pub fn xComp(self: *const Self) Self {
+            return .{ .x = self.x };
+        }
+        pub fn yComp(self: *const Self) Self {
+            return .{ .y = self.y };
+        }
+
+        pub fn add(self: *const Self, other: Self) Self {
+            var new = Self{ .x = self.x, .y = self.y };
+            new.addMut(other);
+            return new;
+        }
+
+        pub fn addMut(self: *Self, other: Self) void {
+            self.x += other.x;
+            self.y += other.y;
+        }
+
+        pub fn sub(self: *const Self, other: Self) Self {
+            var new = Self{ .x = self.x, .y = self.y };
+            new.subMut(other);
+            return new;
+        }
+
+        pub fn subMut(self: *Self, other: Self) void {
+            self.x -= other.x;
+            self.y -= other.y;
+        }
+
+        pub fn dot(self: *const Self, other: Self) T {
+            return self.x * other.x + self.y * other.y;
+        }
+
+        pub fn mul(self: *const Self, v: T) Self {
+            return .{
+                .x = self.x * v,
+                .y = self.y * v,
+            };
+        }
+
+        pub fn mag(self: *const Self) f32 {
+            const tmp = self.x * self.x + self.y * self.y;
+            const f: f32 = switch (@typeInfo(T)) {
+                .Int => @floatFromInt(tmp),
+                .Float => tmp,
+                else => @compileError("V2 type needs to be numeric"),
+            };
+            return std.math.sqrt(f);
+        }
+
+        pub fn unit(self: *const Self) V2(f32) {
+            const tinfo = @typeInfo(T);
+            const x: f32 = switch (tinfo) {
+                .Int => @floatFromInt(self.x),
+                .Float => self.x,
+                else => @compileError("V2 type needs to be numeric"),
+            };
+            const y: f32 = switch (tinfo) {
+                .Int => @floatFromInt(self.y),
+                .Float => self.y,
+                else => @compileError("V2 type needs to be numeric"),
+            };
+            const m = self.mag();
+            return V2(f32){
+                .x = x / m,
+                .y = y / m,
+            };
+        }
+
+        pub fn asType(self: *const Self, comptime OT: type) V2(OT) {
+            const myt = @typeInfo(T);
+            const ot = @typeInfo(OT);
+            return switch (myt) {
+                .Int => {
+                    return switch (ot) {
+                        .Int => V2(OT){
+                            .x = @intCast(self.x),
+                            .y = @intCast(self.y),
+                        },
+                        .Float => V2(OT){
+                            .x = @floatFromInt(self.x),
+                            .y = @floatFromInt(self.y),
+                        },
+                        else => @compileError("V2 type needs to be numeric"),
+                    };
+                },
+                .Float => {
+                    return switch (ot) {
+                        .Int => V2(OT){
+                            .x = @intFromFloat(self.x),
+                            .y = @intFromFloat(self.y),
+                        },
+                        .Float => V2(OT){
+                            .x = @floatCast(self.x),
+                            .y = @floatCast(self.y),
+                        },
+                        else => @compileError("V2 type needs to be numeric"),
+                    };
+                },
+                else => @compileError("V2 type needs to be numeric"),
+            };
+        }
+
+        pub fn equal(self: *const Self, other: Self) bool {
+            return self.x == other.x and self.y == other.y;
+        }
+
+        pub fn print(self: *const Self) void {
+            std.debug.print("<V2 {d},{d}>\n", .{ self.x, self.y });
         }
     };
 }
@@ -207,4 +336,17 @@ test "sum" {
 test "countNonzero" {
     const a = [_]i8{ 0, 1, -3, 0 };
     try std.testing.expectEqual(2, countNonzero(i8, &a));
+}
+
+test "V2" {
+    const v = V2(i8){ .x = 1, .y = 1 };
+    const a = v.add(.{ .x = 2, .y = 3 });
+    const s = v.sub(.{ .x = 2, .y = 3 });
+    const d = a.dot(.{ .x = 1, .y = 2 });
+
+    try std.testing.expectApproxEqAbs(std.math.sqrt2, v.mag(), 0.001);
+    try std.testing.expect(a.equal(.{ .x = 3, .y = 4 }));
+    try std.testing.expect(s.equal(.{ .x = -1, .y = -2 }));
+    try std.testing.expect(v.unit().equal(.{ .x = std.math.sqrt1_2, .y = std.math.sqrt1_2 }));
+    try std.testing.expectEqual(11, d);
 }
