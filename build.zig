@@ -39,7 +39,6 @@ pub fn build(b: *std.Build) !void {
                         .optimize = optimize,
                     });
                     day_exe.root_module.addImport("zutils", zutils);
-
                     b.installArtifact(day_exe);
 
                     // add day run
@@ -49,6 +48,8 @@ pub fn build(b: *std.Build) !void {
 
                     // add day test
                     const day_test = b.addTest(.{ .root_source_file = b.path(zigfile) });
+                    day_test.root_module.addImport("zutils", zutils);
+
                     const run_test = b.addRunArtifact(day_test);
                     const test_step = b.step(b.fmt("test_{s}", .{exename}), b.fmt("Run tests for {s}", .{exename}));
                     test_step.dependOn(&run_test.step);

@@ -1,5 +1,5 @@
 const std = @import("std");
-const zutils = @import("./zutils.zig");
+const zutils = @import("zutils");
 
 fn getOppVal(play: u8) i8 {
     return switch (play) {
