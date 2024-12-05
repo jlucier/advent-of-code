@@ -3,13 +3,6 @@ const zutils = @import("zutils");
 
 const Grid = zutils.Grid(u8);
 
-const Dir = enum { H, V, D1, D2 };
-
-const Match = struct {
-    a_idx: usize,
-    dir: Dir,
-};
-
 const MatchState = struct {
     seq: []const u8,
     next: u8 = 0,
@@ -37,12 +30,12 @@ const MatchState = struct {
 
 const SearchState = struct {
     g: Grid,
-    matches: std.ArrayList(Match),
+    matches: std.ArrayList(usize),
     seq: []const u8,
 
     fn init(allocator: std.mem.Allocator, lines: []const []const u8, seq: []const u8) !SearchState {
         return .{
-            .matches = std.ArrayList(Match).init(allocator),
+            .matches = std.ArrayList(usize).init(allocator),
             .g = try Grid.init2DSlice(allocator, lines),
             .seq = seq,
         };
@@ -54,25 +47,22 @@ const SearchState = struct {
     }
 
     /// Range is inclusive, because that makes it much easier to go in reverse
-    fn search(self: *SearchState, start: usize, end: usize, stride: isize, dir: Dir) !void {
+    fn search(self: *SearchState, start: usize, end: usize, stride: isize) !void {
         var ss = MatchState{ .seq = self.seq };
 
         const e: isize = @intCast(end);
         var i: isize = @intCast(start);
         while (if (stride < 0) i >= e else i <= e) : (i += stride) {
             if (ss.check(self.g.data[@intCast(i)])) {
-                try self.matches.append(.{
-                    // the index of interest is one stride back
-                    .a_idx = @intCast(i - stride),
-                    .dir = dir,
-                });
+                // the index of interest is one stride back
+                try self.matches.append(@intCast(i - stride));
             }
         }
     }
 
-    fn searchForwardBackward(self: *SearchState, start: usize, end: usize, stride: isize, dir: Dir) !void {
-        try self.search(start, end, stride, dir);
-        try self.search(end, start, -stride, dir);
+    fn searchForwardBackward(self: *SearchState, start: usize, end: usize, stride: isize) !void {
+        try self.search(start, end, stride);
+        try self.search(end, start, -stride);
     }
 
     fn searchVertHoriz(self: *SearchState) !void {
@@ -81,7 +71,7 @@ const SearchState = struct {
         while (row < self.g.nrows) : (row += 1) {
             const s = row * self.g.ncols;
             const e = (row + 1) * self.g.ncols - 1;
-            try self.searchForwardBackward(s, e, 1, .H);
+            try self.searchForwardBackward(s, e, 1);
         }
 
         // cols up-down and down-up
@@ -90,7 +80,7 @@ const SearchState = struct {
             const s = col;
             const e = col + (self.g.nrows - 1) * self.g.ncols;
             const stride: isize = @intCast(self.g.ncols);
-            try self.searchForwardBackward(s, e, stride, .V);
+            try self.searchForwardBackward(s, e, stride);
         }
     }
 
@@ -106,7 +96,7 @@ const SearchState = struct {
             var s = i;
             var e = (self.g.nrows - i) * self.g.ncols - 1;
             // starting in the first row, moving down right (or reverse)
-            try self.searchForwardBackward(s, e, stride, .D1);
+            try self.searchForwardBackward(s, e, stride);
 
             if (i == 0) {
                 // skip the main diagonal for this section
@@ -115,7 +105,7 @@ const SearchState = struct {
             // starting in the first column, moving down right (or reverse)
             s = i * self.g.ncols;
             e = self.g.ncols * self.g.nrows - i - 1;
-            try self.searchForwardBackward(s, e, stride, .D1);
+            try self.searchForwardBackward(s, e, stride);
         }
 
         // diagonal ur - dl and dl - ur
@@ -126,7 +116,7 @@ const SearchState = struct {
             var s = i;
             var e = i * self.g.ncols;
             // starting in the first row, moving down left (or reverse)
-            try self.searchForwardBackward(s, e, stride, .D2);
+            try self.searchForwardBackward(s, e, stride);
 
             if (i == 0) {
                 // skip the main diagonal for this section
@@ -135,7 +125,7 @@ const SearchState = struct {
             // starting in the last column, moving down right (or reverse)
             s = (i + 1) * self.g.ncols - 1;
             e = self.g.ncols * (self.g.nrows - 1) + i;
-            try self.searchForwardBackward(s, e, stride, .D2);
+            try self.searchForwardBackward(s, e, stride);
         }
     }
 
@@ -153,27 +143,23 @@ fn p1(allocator: std.mem.Allocator, lines: []const []const u8) !usize {
     return ss.matches.items.len;
 }
 
-fn compareMatch(_: void, a: Match, b: Match) bool {
-    return a.a_idx < b.a_idx;
-}
-
 fn p2(allocator: std.mem.Allocator, lines: []const []const u8) !usize {
     var ss = try SearchState.init(allocator, lines, "MAS");
     defer ss.deinit();
 
     try ss.searchDiag();
 
-    // Find all diagonal matches that share an A and are orthogonal.
-    // Since there are a max of 2 possible matches that share a single A
-    // we can just sort and check adjacent matches
-    std.mem.sort(Match, ss.matches.items, {}, compareMatch);
+    // Find all diagonal matches that share an A. Since only 2 matches
+    // can ever share an A, we can sort and check adjacents. Also, two matches
+    // cannot occupy the same diagonal, so they must form an X.
+    std.mem.sort(usize, ss.matches.items, {}, std.sort.asc(usize));
     var i: usize = 0;
     var tot: usize = 0;
     while (i < ss.matches.items.len - 1) : (i += 1) {
-        const a = &ss.matches.items[i];
-        const b = &ss.matches.items[i + 1];
+        const a = ss.matches.items[i];
+        const b = ss.matches.items[i + 1];
 
-        if (a.a_idx == b.a_idx and a.dir != b.dir) {
+        if (a == b) {
             tot += 1;
         }
     }
