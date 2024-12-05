@@ -125,6 +125,16 @@ pub fn Grid(comptime T: type) type {
             };
         }
 
+        pub fn init2DSlice(allocator: std.mem.Allocator, sl: []const []const T) !Self {
+            var g = try Self.init(allocator, sl.len, sl[0].len);
+            for (sl, 0..) |row, i| {
+                for (row, 0..) |v, j| {
+                    g.atPtr(i, j).* = v;
+                }
+            }
+            return g;
+        }
+
         pub fn deinit(self: *const Self) void {
             self.allocator.free(self.data);
         }
