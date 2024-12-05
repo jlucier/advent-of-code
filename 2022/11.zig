@@ -63,7 +63,12 @@ const Monkey = struct {
         return monkey;
     }
 
-    pub fn doTurn(self: *Monkey, monkeys: *const MonkeyList) !void {
+    pub fn doTurn(self: *Monkey, monkeys: *const MonkeyList, part: u8) !void {
+        var lcm: usize = 1;
+        for (monkeys.items) |m| {
+            lcm *= m.divisor;
+        }
+
         for (self.items.items) |it| {
             var held_it = it;
             self.n_inspections += 1;
@@ -78,8 +83,16 @@ const Monkey = struct {
                 },
             }
 
-            // decrease from boredom
-            held_it /= 3;
+            switch (part) {
+                // decrease from boredom
+                1 => {
+                    held_it /= 3;
+                },
+                2 => {
+                    held_it %= lcm;
+                },
+                else => unreachable,
+            }
 
             // test
             const recipient_idx = if (held_it % self.divisor == 0) self.true_out else self.false_out;
@@ -119,7 +132,7 @@ fn compareMonkeyInspections(_: void, a: Monkey, b: Monkey) bool {
     return a.n_inspections > b.n_inspections;
 }
 
-fn p1(allocator: std.mem.Allocator, lines: []const []const u8) !usize {
+fn monkeyBusiness(allocator: std.mem.Allocator, lines: []const []const u8, part: u8) !usize {
     var monkeys = try parseMonkeys(allocator, lines);
     defer {
         for (monkeys.items) |*mkey| {
@@ -129,9 +142,10 @@ fn p1(allocator: std.mem.Allocator, lines: []const []const u8) !usize {
     }
 
     var i: usize = 0;
-    while (i < 20) : (i += 1) {
+    const rounds: usize = if (part == 1) 20 else 10000;
+    while (i < rounds) : (i += 1) {
         for (monkeys.items) |*mkey| {
-            try mkey.doTurn(&monkeys);
+            try mkey.doTurn(&monkeys, part);
         }
     }
 
@@ -139,7 +153,7 @@ fn p1(allocator: std.mem.Allocator, lines: []const []const u8) !usize {
     return monkeys.items[0].n_inspections * monkeys.items[1].n_inspections;
 }
 
-test "p1" {
+test "parts" {
     const inp = [_][]const u8{
         "Monkey 0:",
         "  Starting items: 79, 98",
@@ -170,13 +184,18 @@ test "p1" {
         "    If false: throw to monkey 1",
     };
 
-    const mbusiness = try p1(std.testing.allocator, &inp);
-    try std.testing.expectEqual(10605, mbusiness);
+    const mbusiness1 = try monkeyBusiness(std.testing.allocator, &inp, 1);
+    try std.testing.expectEqual(10605, mbusiness1);
+
+    const mbusiness2 = try monkeyBusiness(std.testing.allocator, &inp, 2);
+    try std.testing.expectEqual(2713310158, mbusiness2);
 }
 
 pub fn main() !void {
     const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/11.txt");
     defer lines.deinit();
-    const mbusiness = try p1(std.heap.page_allocator, lines.strings.items);
-    std.debug.print("p1: {d}\n", .{mbusiness});
+    const p1 = try monkeyBusiness(std.heap.page_allocator, lines.strings.items, 1);
+    const p2 = try monkeyBusiness(std.heap.page_allocator, lines.strings.items, 2);
+    std.debug.print("p1: {d}\n", .{p1});
+    std.debug.print("p2: {d}\n", .{p2});
 }
