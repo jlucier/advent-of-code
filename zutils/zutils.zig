@@ -1,5 +1,8 @@
 const std = @import("std");
 
+pub const ANSI_RED = "\u{001b}[31m";
+pub const ANSI_RESET = "\u{001b}[m";
+
 // FS
 
 /// Expand the ~ in a pathname to the users home dir. Caller owns the returned path string
@@ -109,12 +112,12 @@ pub fn abs(comptime T: type, a: T) T {
 
 pub fn Grid(comptime T: type) type {
     return struct {
+        const Self = @This();
+
         allocator: std.mem.Allocator,
         nrows: usize,
         ncols: usize,
         data: []T,
-
-        const Self = @This();
 
         pub fn init(allocator: std.mem.Allocator, rows: usize, cols: usize) !Self {
             return .{
@@ -135,8 +138,41 @@ pub fn Grid(comptime T: type) type {
             return g;
         }
 
+        pub fn init2DSliceWithParser(
+            comptime OT: type,
+            allocator: std.mem.Allocator,
+            sl: []const []const OT,
+            comptime parser: fn (v: OT) T,
+        ) !Self {
+            var g = try Self.init(allocator, sl.len, sl[0].len);
+            for (sl, 0..) |row, i| {
+                for (row, 0..) |v, j| {
+                    g.atPtr(i, j).* = parser(v);
+                }
+            }
+            return g;
+        }
+
         pub fn deinit(self: *const Self) void {
             self.allocator.free(self.data);
+        }
+
+        /// Swap the Y Axis
+        pub fn transposeY(self: *Self) !void {
+            const swap = try self.allocator.alloc(T, self.ncols);
+            defer self.allocator.free(swap);
+
+            var i: usize = 0;
+            while (i < self.nrows / 2) : (i += 1) {
+                const row_i = self.data[i * self.ncols .. (i + 1) * self.ncols];
+                const row_ni = self.data[(self.nrows - i - 1) * self.ncols .. (self.nrows - i) * self.ncols];
+                // copy row i to swap
+                std.mem.copyForwards(T, swap, row_i);
+                // copy row (nrows - i) to row i
+                std.mem.copyForwards(T, row_i, row_ni);
+                // swap to ni
+                std.mem.copyForwards(T, row_ni, swap);
+            }
         }
 
         pub fn at(self: *const Self, row: usize, col: usize) T {
@@ -145,6 +181,10 @@ pub fn Grid(comptime T: type) type {
 
         pub fn atPtr(self: *Self, row: usize, col: usize) *T {
             return &self.data[row * self.ncols + col];
+        }
+
+        pub fn inBounds(self: *const Self, x: anytype, y: anytype) bool {
+            return x >= 0 and x < self.ncols and y >= 0 and y < self.nrows;
         }
 
         pub fn print(self: *const Self) void {
@@ -244,37 +284,18 @@ pub fn V2(comptime T: type) type {
             };
         }
 
+        /// Rotate the vector 90 clockwise, without the trig
+        pub fn rotateClockwise(self: *const Self) Self {
+            return .{
+                .x = self.y,
+                .y = -self.x,
+            };
+        }
+
         pub fn asType(self: *const Self, comptime OT: type) V2(OT) {
-            const myt = @typeInfo(T);
-            const ot = @typeInfo(OT);
-            return switch (myt) {
-                .Int => {
-                    return switch (ot) {
-                        .Int => V2(OT){
-                            .x = @intCast(self.x),
-                            .y = @intCast(self.y),
-                        },
-                        .Float => V2(OT){
-                            .x = @floatFromInt(self.x),
-                            .y = @floatFromInt(self.y),
-                        },
-                        else => @compileError("V2 type needs to be numeric"),
-                    };
-                },
-                .Float => {
-                    return switch (ot) {
-                        .Int => V2(OT){
-                            .x = @intFromFloat(self.x),
-                            .y = @intFromFloat(self.y),
-                        },
-                        .Float => V2(OT){
-                            .x = @floatCast(self.x),
-                            .y = @floatCast(self.y),
-                        },
-                        else => @compileError("V2 type needs to be numeric"),
-                    };
-                },
-                else => @compileError("V2 type needs to be numeric"),
+            return V2(OT){
+                .x = Self.myTypeToOther(OT, self.x),
+                .y = Self.myTypeToOther(OT, self.y),
             };
         }
 
@@ -284,6 +305,27 @@ pub fn V2(comptime T: type) type {
 
         pub fn print(self: *const Self) void {
             std.debug.print("<V2 {d},{d}>\n", .{ self.x, self.y });
+        }
+
+        fn myTypeToOther(comptime O: type, v: T) O {
+            const ot = @typeInfo(O);
+            return switch (@typeInfo(T)) {
+                .Int => {
+                    return switch (ot) {
+                        .Int => @intCast(v),
+                        .Float => @floatFromInt(v),
+                        else => @compileError("V2 type needs to be numeric"),
+                    };
+                },
+                .Float => {
+                    return switch (ot) {
+                        .Int => @intFromFloat(v),
+                        .Float => @floatCast(v),
+                        else => @compileError("V2 type needs to be numeric"),
+                    };
+                },
+                else => @compileError("V2 type needs to be numeric"),
+            };
         }
     };
 }
@@ -359,4 +401,41 @@ test "V2" {
     try std.testing.expect(s.equal(.{ .x = -1, .y = -2 }));
     try std.testing.expect(v.unit().equal(.{ .x = std.math.sqrt1_2, .y = std.math.sqrt1_2 }));
     try std.testing.expectEqual(11, d);
+}
+
+test "V2 astype" {
+    const v = V2(usize){ .x = 1, .y = 0 };
+
+    try std.testing.expect(v.equal(v.asType(isize).asType(usize)));
+}
+
+test "grid bounds" {
+    const g = try Grid(u8).init(std.testing.allocator, 5, 5);
+    defer g.deinit();
+
+    try std.testing.expect(!g.inBounds(6, 5));
+    try std.testing.expect(!g.inBounds(-1, 0));
+    try std.testing.expect(!g.inBounds(0, 6));
+    try std.testing.expect(!g.inBounds(0, -6));
+}
+
+test "grid reverse" {
+    const sl = [_][]const u8{
+        "#.",
+        ".#",
+        ".#",
+    };
+    var g = try Grid(u8).init2DSlice(std.testing.allocator, &sl);
+    defer g.deinit();
+
+    try std.testing.expectEqual('#', g.at(0, 0));
+    try std.testing.expectEqual('.', g.at(0, 1));
+    try std.testing.expectEqual('#', g.at(2, 1));
+
+    try g.transposeY();
+
+    try std.testing.expectEqual('.', g.at(0, 0));
+    try std.testing.expectEqual('.', g.at(1, 0));
+    try std.testing.expectEqual('#', g.at(1, 1));
+    try std.testing.expectEqual('#', g.at(2, 0));
 }
