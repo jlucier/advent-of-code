@@ -16,6 +16,9 @@ pub fn build(b: *std.Build) !void {
     const ztest_step = b.step("test_zutils", "Run zutils tests");
     ztest_step.dependOn(&run_ztest.step);
 
+    const all_test_step = b.step("test_all", "Run all tests");
+    all_test_step.dependOn(&run_ztest.step);
+
     // iterate through day files and add targets
     const cwd = std.fs.cwd();
     for (YEAR_DIRS) |y| {
@@ -53,6 +56,7 @@ pub fn build(b: *std.Build) !void {
                     const run_test = b.addRunArtifact(day_test);
                     const test_step = b.step(b.fmt("test_{s}", .{exename}), b.fmt("Run tests for {s}", .{exename}));
                     test_step.dependOn(&run_test.step);
+                    all_test_step.dependOn(&run_test.step);
                 },
                 else => {
                     continue;
