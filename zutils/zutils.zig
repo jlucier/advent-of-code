@@ -157,6 +157,12 @@ pub fn Grid(comptime T: type) type {
             self.allocator.free(self.data);
         }
 
+        pub fn fill(self: *Self, v: T) void {
+            for (self.data) |*it| {
+                it.* = v;
+            }
+        }
+
         /// Swap the Y Axis
         pub fn transposeY(self: *Self) !void {
             const swap = try self.allocator.alloc(T, self.ncols);
