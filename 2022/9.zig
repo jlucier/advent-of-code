@@ -78,7 +78,7 @@ fn parseMove(move: []const u8) !V2 {
 fn reactTail(head: *const V2, tail: *V2) V2 {
     const dist = head.sub(tail.*);
 
-    if (dist.mag() <= std.math.sqrt2) {
+    if (dist.mag(f32) <= std.math.sqrt2) {
         return .{};
     }
 
@@ -92,13 +92,13 @@ fn reactTail(head: *const V2, tail: *V2) V2 {
         };
     } else {
         // unit vector in the direction of the move should get us 1 away from head
-        tail_move = dist.unit().asType(isize);
+        tail_move = dist.unit(f32).asType(isize);
     }
 
     // move tail
     tail.addMut(tail_move);
     // sanity check that the move put tail adjacent to head
-    std.debug.assert(tail.sub(head.*).mag() <= std.math.sqrt2);
+    std.debug.assert(tail.sub(head.*).mag(f32) <= std.math.sqrt2);
     return tail_move;
 }
 
@@ -115,8 +115,8 @@ fn trackTail(allocator: std.mem.Allocator, moves: []const []const u8, comptime n
     for (moves) |m| {
         const mv = try parseMove(m);
         // break move into single steps
-        const mvu = mv.unit().asType(isize);
-        var i: usize = @intFromFloat(mv.mag());
+        const mvu = mv.unit(f32).asType(isize);
+        var i: usize = @intFromFloat(mv.mag(f32));
 
         while (i > 0) : (i -= 1) {
             // start by moving the head according to the actual move

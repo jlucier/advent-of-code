@@ -94,6 +94,15 @@ pub fn countNonzero(comptime T: type, slice: []const T) usize {
     return s;
 }
 
+pub fn indexOf2DScalar(comptime T: type, haystack: []const []const T, needle: T) ?V2(usize) {
+    for (haystack, 0..) |row, y| {
+        if (std.mem.indexOfScalar(T, row, needle)) |x| {
+            return .{ .x = x, .y = y };
+        }
+    }
+    return null;
+}
+
 // Math
 
 pub fn min(comptime T: type, a: T, b: T) T {
@@ -106,6 +115,10 @@ pub fn max(comptime T: type, a: T, b: T) T {
 
 pub fn abs(comptime T: type, a: T) T {
     return if (a >= 0) a else -a;
+}
+
+pub fn between(comptime T: type, v: T, low: T, high: T) bool {
+    return v >= low and v < high;
 }
 
 // Grid
@@ -261,9 +274,9 @@ pub fn V2(comptime T: type) type {
             };
         }
 
-        pub fn mag(self: *const Self) f32 {
+        pub fn mag(self: *const Self, comptime FT: type) FT {
             const tmp = self.x * self.x + self.y * self.y;
-            const f: f32 = switch (@typeInfo(T)) {
+            const f: FT = switch (@typeInfo(T)) {
                 .Int => @floatFromInt(tmp),
                 .Float => tmp,
                 else => @compileError("V2 type needs to be numeric"),
@@ -271,20 +284,30 @@ pub fn V2(comptime T: type) type {
             return std.math.sqrt(f);
         }
 
-        pub fn unit(self: *const Self) V2(f32) {
+        ///Return the distance this vector represents in "Manhattan Distance"
+        pub fn manhattanMag(self: *const Self) T {
+            const res = @abs(self.x) + @abs(self.y);
+            return switch (@typeInfo(T)) {
+                .Int => @intCast(res),
+                .Float => @floatCast(res),
+                else => @compileError("V2 type needs to be numeric"),
+            };
+        }
+
+        pub fn unit(self: *const Self, comptime FT: type) V2(FT) {
             const tinfo = @typeInfo(T);
-            const x: f32 = switch (tinfo) {
+            const x: FT = switch (tinfo) {
                 .Int => @floatFromInt(self.x),
                 .Float => self.x,
                 else => @compileError("V2 type needs to be numeric"),
             };
-            const y: f32 = switch (tinfo) {
+            const y: FT = switch (tinfo) {
                 .Int => @floatFromInt(self.y),
                 .Float => self.y,
                 else => @compileError("V2 type needs to be numeric"),
             };
-            const m = self.mag();
-            return V2(f32){
+            const m = self.mag(FT);
+            return V2(FT){
                 .x = x / m,
                 .y = y / m,
             };
@@ -307,6 +330,12 @@ pub fn V2(comptime T: type) type {
 
         pub fn equal(self: *const Self, other: Self) bool {
             return self.x == other.x and self.y == other.y;
+        }
+
+        /// Return whether the vector is inside the bounds of a grid ranging
+        /// from 0,x and 0,y
+        pub fn inGridBounds(self: *const Self, x: T, y: T) bool {
+            return between(T, self.x, 0, x) and between(T, self.y, 0, y);
         }
 
         pub fn print(self: *const Self) void {
@@ -402,10 +431,10 @@ test "V2" {
     const s = v.sub(.{ .x = 2, .y = 3 });
     const d = a.dot(.{ .x = 1, .y = 2 });
 
-    try std.testing.expectApproxEqAbs(std.math.sqrt2, v.mag(), 0.001);
+    try std.testing.expectApproxEqAbs(std.math.sqrt2, v.mag(f32), 0.001);
     try std.testing.expect(a.equal(.{ .x = 3, .y = 4 }));
     try std.testing.expect(s.equal(.{ .x = -1, .y = -2 }));
-    try std.testing.expect(v.unit().equal(.{ .x = std.math.sqrt1_2, .y = std.math.sqrt1_2 }));
+    try std.testing.expect(v.unit(f32).equal(.{ .x = std.math.sqrt1_2, .y = std.math.sqrt1_2 }));
     try std.testing.expectEqual(11, d);
 }
 
