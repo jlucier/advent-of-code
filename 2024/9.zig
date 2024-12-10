@@ -29,17 +29,17 @@ const Layout = struct {
         self.disk.deinit();
     }
 
-    fn firstBlock(self: *const Layout, free: bool) ?usize {
-        for (self.disk.items, 0..) |it, i| {
+    fn firstBlock(self: *const Layout, free: bool, hint: usize) ?usize {
+        for (self.disk.items[hint..], 0..) |it, i| {
             if ((free and it.id == null) or (!free and it.id != null)) {
-                return i;
+                return i + hint;
             }
         }
         return null;
     }
 
-    fn lastBlock(self: *const Layout, free: bool) ?usize {
-        var i: usize = self.disk.items.len - 1;
+    fn lastBlock(self: *const Layout, free: bool, hint: usize) ?usize {
+        var i: usize = hint;
         while (i >= 0) : (i -= 1) {
             const it = self.disk.items[i];
             if ((free and it.id == null) or (!free and it.id != null)) {
@@ -50,37 +50,34 @@ const Layout = struct {
     }
 
     pub fn compactP1(self: *Layout) !void {
-        while (true) {
-            const free_i = self.firstBlock(true).?;
-            const occ_i = self.lastBlock(false).?;
-
-            if (occ_i < free_i) {
-                return;
-            }
-
+        var free_i = self.firstBlock(true, 0).?;
+        var occ_i = self.lastBlock(false, self.disk.items.len - 1).?;
+        while (occ_i > free_i) {
             // pop this guy off the list
-            var occ_seg = self.disk.orderedRemove(occ_i);
+            var occ_seg = &self.disk.items[occ_i];
             const free_seg = &self.disk.items[free_i];
             const amount_moved = zutils.min(usize, occ_seg.nblocks, free_seg.nblocks);
 
-            free_seg.nblocks -= amount_moved;
-            occ_seg.nblocks -= amount_moved;
-
-            if (free_seg.nblocks == 0) {
+            if (free_seg.nblocks == amount_moved) {
                 // the portion of occ moved subsumes free space
                 free_seg.id = occ_seg.id;
                 free_seg.nblocks = amount_moved;
-            }
-            // WARN: POINTERS INVALIDATED
-            else {
+            } else {
                 // there is leftover free space, insert partial occ prior
+                free_seg.nblocks -= amount_moved;
+                occ_i += 1;
                 try self.disk.insert(free_i, .{ .id = occ_seg.id, .nblocks = amount_moved });
             }
 
-            if (occ_seg.nblocks > 0) {
-                // add it back, didn't finish
-                self.disk.appendAssumeCapacity(occ_seg);
+            // WARN: POINTERS INVALIDATED
+            occ_seg = &self.disk.items[occ_i];
+            occ_seg.nblocks -= amount_moved;
+            if (occ_seg.nblocks == 0) {
+                occ_seg.id = null;
             }
+
+            free_i = self.firstBlock(true, free_i).?;
+            occ_i = self.lastBlock(false, occ_i).?;
         }
     }
 
@@ -103,7 +100,6 @@ const Layout = struct {
                 seg.id = null;
                 // WARN: Invalidate pointers
                 try self.disk.insert(fidx, .{ .id = sid, .nblocks = seg.nblocks });
-                // free og
             }
 
             break;
@@ -111,21 +107,21 @@ const Layout = struct {
     }
 
     pub fn compactP2(self: *Layout, allocator: std.mem.Allocator) !void {
-        var seen = std.AutoHashMap(usize, void).init(allocator);
-        defer seen.deinit();
+        const seen = try allocator.alloc(bool, self.disk.items.len / 2 + self.disk.items.len % 2);
+        defer allocator.free(seen);
 
+        var i: isize = @intCast(self.disk.items.len - 1);
         while (true) {
             // last block not seen
-            var i: isize = @intCast(self.disk.items.len - 1);
             var blkidx: ?usize = null;
             while (i >= 0) : (i -= 1) {
                 const blk = self.disk.items[@intCast(i)];
                 if (blk.id == null) {
                     continue;
                 }
-                const res = try seen.getOrPut(blk.id.?);
-                if (!res.found_existing) {
+                if (!seen[blk.id.?]) {
                     blkidx = @intCast(i);
+                    seen[blk.id.?] = true;
                     break;
                 }
             }
@@ -184,16 +180,18 @@ test "p2" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/9.txt");
-    defer lines.deinit();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    const lines = try zutils.readLines(allocator, "~/sync/dev/aoc_inputs/2024/9.txt");
     const ln = lines.strings.items[0];
 
-    var layout1 = try Layout.init(std.heap.page_allocator, ln);
+    var layout1 = try Layout.init(allocator, ln);
     try layout1.compactP1();
 
     std.debug.print("p1: {d}\n", .{layout1.checksum()});
 
-    var layout2 = try Layout.init(std.heap.page_allocator, ln);
+    var layout2 = try Layout.init(allocator, ln);
     try layout2.compactP2(std.heap.page_allocator);
 
     std.debug.print("p2: {d}\n", .{layout2.checksum()});
