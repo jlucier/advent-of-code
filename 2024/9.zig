@@ -2,8 +2,9 @@ const std = @import("std");
 const zutils = @import("zutils");
 
 const Segment = struct {
-    id: ?usize,
+    id: usize,
     nblocks: usize,
+    nfree: usize = 0,
 };
 
 const Layout = struct {
@@ -11,16 +12,20 @@ const Layout = struct {
 
     pub fn init(allocator: std.mem.Allocator, str: []const u8) !Layout {
         var layout = Layout{
-            .disk = try std.ArrayList(Segment).initCapacity(allocator, str.len),
+            .disk = try std.ArrayList(Segment).initCapacity(allocator, str.len / 2 + str.len % 2),
         };
 
         for (str, 0..) |_, i| {
             const v = try std.fmt.parseUnsigned(usize, str[i .. i + 1], 10);
-            const i_adj = i / 2 + i % 2;
-            layout.disk.appendAssumeCapacity(.{
-                .id = if (i % 2 == 0) @intCast(i_adj) else null,
-                .nblocks = v,
-            });
+            const i_adj = i / 2;
+            if (i % 2 == 0) {
+                layout.disk.appendAssumeCapacity(.{
+                    .id = i_adj,
+                    .nblocks = v,
+                });
+            } else {
+                layout.disk.items[i_adj].nfree = v;
+            }
         }
         return layout;
     }
@@ -31,7 +36,7 @@ const Layout = struct {
 
     fn firstBlock(self: *const Layout, free: bool, hint: usize) ?usize {
         for (self.disk.items[hint..], 0..) |it, i| {
-            if ((free and it.id == null) or (!free and it.id != null)) {
+            if ((free and it.nfree > 0) or (!free and it.nblocks > 0)) {
                 return i + hint;
             }
         }
@@ -42,7 +47,7 @@ const Layout = struct {
         var i: usize = hint;
         while (i >= 0) : (i -= 1) {
             const it = self.disk.items[i];
-            if ((free and it.id == null) or (!free and it.id != null)) {
+            if ((free and it.nfree > 0) or (!free and it.nblocks > 0)) {
                 return i;
             }
         }
@@ -56,24 +61,26 @@ const Layout = struct {
             // pop this guy off the list
             var occ_seg = &self.disk.items[occ_i];
             const free_seg = &self.disk.items[free_i];
-            const amount_moved = zutils.min(usize, occ_seg.nblocks, free_seg.nblocks);
+            const amount_moved = zutils.min(usize, occ_seg.nblocks, free_seg.nfree);
 
-            if (free_seg.nblocks == amount_moved) {
-                // the portion of occ moved subsumes free space
-                free_seg.id = occ_seg.id;
-                free_seg.nblocks = amount_moved;
-            } else {
-                // there is leftover free space, insert partial occ prior
-                free_seg.nblocks -= amount_moved;
-                occ_i += 1;
-                try self.disk.insert(free_i, .{ .id = occ_seg.id, .nblocks = amount_moved });
-            }
+            occ_seg.nblocks -= amount_moved;
+            free_seg.nfree -= amount_moved;
+
+            const moved = Segment{
+                .id = occ_seg.id,
+                .nblocks = amount_moved,
+                .nfree = free_seg.nfree,
+            };
+            free_seg.nfree = 0;
 
             // WARN: POINTERS INVALIDATED
+            occ_i += 1;
+            try self.disk.insert(free_i + 1, moved);
+
             occ_seg = &self.disk.items[occ_i];
-            occ_seg.nblocks -= amount_moved;
             if (occ_seg.nblocks == 0) {
-                occ_seg.id = null;
+                _ = self.disk.swapRemove(occ_i);
+                occ_i -= 1;
             }
 
             free_i = self.firstBlock(true, free_i).?;
@@ -86,28 +93,27 @@ const Layout = struct {
         var fidx: usize = 0;
         while (fidx < idx) : (fidx += 1) {
             const fseg = &self.disk.items[fidx];
-            if (fseg.id != null or fseg.nblocks < seg.nblocks) {
+            if (fseg.nfree < seg.nblocks) {
                 continue;
             }
 
-            if (fseg.nblocks == seg.nblocks) {
-                // replace
-                fseg.id = seg.id;
-                seg.id = null;
-            } else {
-                fseg.nblocks -= seg.nblocks;
-                const sid = seg.id;
-                seg.id = null;
-                // WARN: Invalidate pointers
-                try self.disk.insert(fidx, .{ .id = sid, .nblocks = seg.nblocks });
-            }
+            const nfree = fseg.nfree - seg.nblocks;
+            const nblocks = seg.nblocks;
+            fseg.nfree = 0;
+            seg.nfree += seg.nblocks;
+            seg.nblocks = 0;
+            try self.disk.insert(fidx + 1, .{
+                .id = seg.id,
+                .nblocks = nblocks,
+                .nfree = nfree,
+            });
 
             break;
         }
     }
 
     pub fn compactP2(self: *Layout, allocator: std.mem.Allocator) !void {
-        const seen = try allocator.alloc(bool, self.disk.items.len / 2 + self.disk.items.len % 2);
+        const seen = try allocator.alloc(bool, self.disk.items.len);
         defer allocator.free(seen);
 
         var i: isize = @intCast(self.disk.items.len - 1);
@@ -116,12 +122,12 @@ const Layout = struct {
             var blkidx: ?usize = null;
             while (i >= 0) : (i -= 1) {
                 const blk = self.disk.items[@intCast(i)];
-                if (blk.id == null) {
+                if (blk.nblocks == 0) {
                     continue;
                 }
-                if (!seen[blk.id.?]) {
+                if (!seen[blk.id]) {
                     blkidx = @intCast(i);
-                    seen[blk.id.?] = true;
+                    seen[blk.id] = true;
                     break;
                 }
             }
@@ -139,11 +145,10 @@ const Layout = struct {
         for (self.disk.items) |it| {
             var j: usize = 0;
             while (j < it.nblocks) : (j += 1) {
-                if (it.id) |id| {
-                    sum += disk_i * id;
-                }
+                sum += disk_i * it.id;
                 disk_i += 1;
             }
+            disk_i += it.nfree;
         }
         return sum;
     }
@@ -151,9 +156,13 @@ const Layout = struct {
     pub fn printDisk(self: *const Layout) void {
         for (self.disk.items) |it| {
             var i: usize = 0;
-            const id: u8 = if (it.id != null) @intCast(it.id.? + 48) else '.';
+            const c: u8 = @intCast(it.id + 48);
             while (i < it.nblocks) : (i += 1) {
-                std.debug.print("{c}", .{id});
+                std.debug.print("{c}", .{c});
+            }
+            i = 0;
+            while (i < it.nfree) : (i += 1) {
+                std.debug.print(".", .{});
             }
         }
         std.debug.print("\n", .{});
