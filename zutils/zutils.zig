@@ -121,6 +121,17 @@ pub fn between(comptime T: type, v: T, low: T, high: T) bool {
     return v >= low and v < high;
 }
 
+// parsing
+
+pub fn makeIntParser(comptime T: type, comptime O: type, base: usize, backup: O) type {
+    return struct {
+        pub fn parse(v: T) O {
+            const tmp = [1]u8{v};
+            return std.fmt.parseInt(O, &tmp, base) catch backup;
+        }
+    };
+}
+
 // Grid
 
 pub fn Grid(comptime T: type) type {
@@ -131,6 +142,25 @@ pub fn Grid(comptime T: type) type {
         nrows: usize,
         ncols: usize,
         data: []T,
+
+        const Iterator = struct {
+            curr: V2(usize),
+            ncols: usize,
+            nrows: usize,
+
+            pub fn next(self: *@This()) ?V2(usize) {
+                const ret = self.curr;
+                self.curr.x += 1;
+                if (self.curr.x >= self.ncols) {
+                    self.curr.x = 0;
+                    self.curr.y += 1;
+                }
+                if (ret.y >= self.nrows) {
+                    return null;
+                }
+                return ret;
+            }
+        };
 
         pub fn init(allocator: std.mem.Allocator, rows: usize, cols: usize) !Self {
             return .{
@@ -204,6 +234,14 @@ pub fn Grid(comptime T: type) type {
 
         pub fn inBounds(self: *const Self, x: anytype, y: anytype) bool {
             return x >= 0 and x < self.ncols and y >= 0 and y < self.nrows;
+        }
+
+        pub fn iterator(self: *const Self) Iterator {
+            return Iterator{
+                .curr = .{},
+                .ncols = self.ncols,
+                .nrows = self.nrows,
+            };
         }
 
         pub fn print(self: *const Self) void {
@@ -473,4 +511,27 @@ test "grid reverse" {
     try std.testing.expectEqual('.', g.at(1, 0));
     try std.testing.expectEqual('#', g.at(1, 1));
     try std.testing.expectEqual('#', g.at(2, 0));
+}
+
+test "grid iterator" {
+    const g = try Grid(u8).init(std.testing.allocator, 5, 5);
+    defer g.deinit();
+
+    var x: usize = 0;
+    var y: usize = 0;
+    const maxIter = g.ncols * g.nrows;
+    var i: usize = 0;
+    var iter = g.iterator();
+    while (iter.next()) |v| {
+        try std.testing.expect(v.equal(.{ .x = x, .y = y }));
+
+        if (x + 1 == g.ncols) {
+            y += 1;
+        }
+        x = (x + 1) % g.ncols;
+
+        i += 1;
+        try std.testing.expect(maxIter >= i);
+    }
+    try std.testing.expectEqual(maxIter, i);
 }
