@@ -27,11 +27,6 @@ fn findShortestPath(allocator: std.mem.Allocator, lines: []const []const u8) !us
 
     while (queue.removeOrNull()) |p| {
         if (p.loc.equal(end)) {
-            return p.dist;
-        }
-        try visited.put(p.loc, p.dist);
-
-        if (p.dist > 300) {
             std.debug.print("\n", .{});
             for (lines, 0..) |ln, j| {
                 for (ln, 0..) |c, i| {
@@ -44,7 +39,9 @@ fn findShortestPath(allocator: std.mem.Allocator, lines: []const []const u8) !us
                 }
                 std.debug.print("\n", .{});
             }
+            return p.dist;
         }
+        try visited.put(p.loc, p.dist);
 
         const c = lines[@intCast(p.loc.y)][@intCast(p.loc.x)];
         const curr_elv: i8 = if (c == 'S') @intCast('a') else @intCast(c);
@@ -72,7 +69,7 @@ fn findShortestPath(allocator: std.mem.Allocator, lines: []const []const u8) !us
 
             const oc = lines[@intCast(n.y)][@intCast(n.x)];
             const other_elev: i8 = if (oc == 'E') @intCast('z') else @intCast(oc);
-            const delta = @abs(other_elev - curr_elv);
+            const delta = other_elev - curr_elv;
 
             if (delta <= 1) {
                 const nc_i: isize = @intCast(next_cost);
