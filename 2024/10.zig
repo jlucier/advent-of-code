@@ -3,8 +3,13 @@ const zutils = @import("zutils");
 
 const V2 = zutils.V2(isize);
 const V2Set = std.AutoArrayHashMap(V2, void);
-const ReachMap = std.AutoArrayHashMap(V2, V2Set);
+const ReachMap = std.AutoArrayHashMap(V2, SearchVals);
 const Grid = zutils.Grid(u8);
+
+const SearchVals = struct {
+    vset: V2Set,
+    npaths: usize = 0,
+};
 
 const State = struct {
     allocator: std.mem.Allocator,
@@ -37,8 +42,8 @@ const State = struct {
     fn deinit(self: *State) void {
         self.grid.deinit();
         self.allocator.free(self.starts);
-        for (self.visited.values()) |*vset| {
-            vset.deinit();
+        for (self.visited.values()) |*v| {
+            v.vset.deinit();
         }
         self.visited.deinit();
     }
@@ -69,12 +74,15 @@ const State = struct {
             return;
         }
 
-        // self.print(pos);
         const v: i8 = @intCast(self.grid.at(@intCast(pos.y), @intCast(pos.x)));
-        try self.visited.put(pos, V2Set.init(self.allocator));
+        try self.visited.put(pos, .{
+            .vset = V2Set.init(self.allocator),
+        });
 
         if (v == 9) {
-            try self.visited.getPtr(pos).?.put(pos, {});
+            const tmp = self.visited.getPtr(pos).?;
+            try tmp.vset.put(pos, {});
+            tmp.npaths += 1;
             return;
         }
 
@@ -102,19 +110,23 @@ const State = struct {
             try self.search(n);
             const nreach = self.visited.getPtr(n).?;
             var myreach = self.visited.getPtr(pos).?;
-            for (nreach.keys()) |p| {
-                try myreach.put(p, {});
+            for (nreach.vset.keys()) |p| {
+                try myreach.vset.put(p, {});
             }
+            myreach.npaths += nreach.npaths;
         }
     }
 
-    fn p1(self: *State) !usize {
-        var tot: usize = 0;
+    fn parts(self: *State) ![2]usize {
+        var p1: usize = 0;
+        var p2: usize = 0;
         for (self.starts) |st| {
             try self.search(st);
-            tot += self.visited.getPtr(st).?.count();
+            const res = self.visited.getPtr(st).?;
+            p1 += res.vset.count();
+            p2 += res.npaths;
         }
-        return tot;
+        return .{ p1, p2 };
     }
 };
 
@@ -132,8 +144,10 @@ test "example" {
 
     var st = try State.initParse(std.testing.allocator, &lines);
     defer st.deinit();
+    const ans = try st.parts();
 
-    try std.testing.expectEqual(36, try st.p1());
+    try std.testing.expectEqual(36, ans[0]);
+    try std.testing.expectEqual(81, ans[1]);
 }
 
 pub fn main() !void {
@@ -141,5 +155,7 @@ pub fn main() !void {
     var st = try State.initParse(std.heap.page_allocator, lines.strings.items);
     defer st.deinit();
 
-    std.debug.print("p1: {d}\n", .{try st.p1()});
+    const ans = try st.parts();
+    std.debug.print("p1: {d}\n", .{ans[0]});
+    std.debug.print("p2: {d}\n", .{ans[1]});
 }
