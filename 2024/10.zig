@@ -2,13 +2,15 @@ const std = @import("std");
 const zutils = @import("zutils");
 
 const V2 = zutils.V2(isize);
-const CostCache = std.AutoArrayHashMap(V2, usize);
+const V2Set = std.AutoArrayHashMap(V2, void);
+const ReachMap = std.AutoArrayHashMap(V2, V2Set);
 const Grid = zutils.Grid(u8);
 
 const State = struct {
     allocator: std.mem.Allocator,
     grid: Grid,
     starts: []V2,
+    visited: ReachMap,
 
     fn initParse(allocator: std.mem.Allocator, lines: []const []const u8) !State {
         const parser = zutils.makeIntParser(u8, u8, 10, 0);
@@ -28,37 +30,93 @@ const State = struct {
             .allocator = allocator,
             .grid = grid,
             .starts = try starts.toOwnedSlice(),
+            .visited = ReachMap.init(allocator),
         };
     }
 
     fn deinit(self: *State) void {
         self.grid.deinit();
         self.allocator.free(self.starts);
+        for (self.visited.values()) |*vset| {
+            vset.deinit();
+        }
+        self.visited.deinit();
     }
-};
 
-fn search(allocator: std.mem.Allocator, cache: CostCache, start: V2, grid: Grid) usize {
-    var queue = try std.ArrayList(V2).initCapacity(allocator, 4);
-    queue.appendAssumeCapacity(start);
+    fn print(self: *const State, pos: V2) void {
+        std.debug.print("\n", .{});
 
-    while (queue.popOrNull()) |loc| {
+        var i: usize = 0;
+        while (i < self.grid.nrows) : (i += 1) {
+            var j: usize = 0;
+            while (j < self.grid.ncols) : (j += 1) {
+                const v = self.grid.at(i, j);
+                const loc = V2{ .x = @intCast(j), .y = @intCast(i) };
+                if (pos.equal(loc)) {
+                    std.debug.print("{s}{d}{s}", .{ zutils.ANSI_RED, v, zutils.ANSI_RESET });
+                } else if (self.visited.getPtr(loc) != null) {
+                    std.debug.print("{s}{d}{s}", .{ zutils.ANSI_GREEN, v, zutils.ANSI_RESET });
+                } else {
+                    std.debug.print("{d}", .{v});
+                }
+            }
+            std.debug.print("\n", .{});
+        }
+    }
+
+    fn search(self: *State, pos: V2) !void {
+        if (self.visited.getPtr(pos) != null) {
+            return;
+        }
+
+        // self.print(pos);
+        const v: i8 = @intCast(self.grid.at(@intCast(pos.y), @intCast(pos.x)));
+        try self.visited.put(pos, V2Set.init(self.allocator));
+
+        if (v == 9) {
+            try self.visited.getPtr(pos).?.put(pos, {});
+            return;
+        }
+
         const next = [4]V2{
             // left
-            loc.add(.{ .x = -1 }),
+            pos.add(.{ .x = -1 }),
             // right
-            loc.add(.{ .x = 1 }),
+            pos.add(.{ .x = 1 }),
             // up
-            loc.add(.{ .y = -1 }),
+            pos.add(.{ .y = -1 }),
             // down
-            loc.add(.{ .y = 1 }),
+            pos.add(.{ .y = 1 }),
         };
+
         for (next) |n| {
-            if (!n.inGridBounds(grid.ncols, grid.nrows)) {
+            if (!n.inGridBounds(@intCast(self.grid.ncols), @intCast(self.grid.nrows))) {
                 continue;
+            }
+
+            const nv: i8 = @intCast(self.grid.at(@intCast(n.y), @intCast(n.x)));
+            if (nv - v != 1) {
+                continue;
+            }
+
+            try self.search(n);
+            const nreach = self.visited.getPtr(n).?;
+            var myreach = self.visited.getPtr(pos).?;
+            for (nreach.keys()) |p| {
+                try myreach.put(p, {});
             }
         }
     }
-}
+
+    fn p1(self: *State) !usize {
+        var tot: usize = 0;
+        for (self.starts) |st| {
+            try self.search(st);
+            tot += self.visited.getPtr(st).?.count();
+        }
+        return tot;
+    }
+};
 
 test "example" {
     const lines = [_][]const u8{
@@ -74,6 +132,14 @@ test "example" {
 
     var st = try State.initParse(std.testing.allocator, &lines);
     defer st.deinit();
+
+    try std.testing.expectEqual(36, try st.p1());
 }
 
-pub fn main() !void {}
+pub fn main() !void {
+    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/10.txt");
+    var st = try State.initParse(std.heap.page_allocator, lines.strings.items);
+    defer st.deinit();
+
+    std.debug.print("p1: {d}\n", .{try st.p1()});
+}
