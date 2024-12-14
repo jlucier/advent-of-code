@@ -4,6 +4,10 @@ pub const ANSI_RED = "\u{001b}[31m";
 pub const ANSI_GREEN = "\u{001b}[32m";
 pub const ANSI_RESET = "\u{001b}[m";
 
+pub fn printRed(s: []const u8) void {
+    return std.debug.print("{s}{s}{s}", .{ ANSI_RED, s, ANSI_RESET });
+}
+
 // FS
 
 /// Expand the ~ in a pathname to the users home dir. Caller owns the returned path string
@@ -352,11 +356,31 @@ pub fn V2(comptime T: type) type {
             };
         }
 
+        pub fn neighbors(self: *const Self) [4]V2(T) {
+            return .{
+                // left
+                self.add(.{ .x = -1 }),
+                // right
+                self.add(.{ .x = 1 }),
+                // up
+                self.add(.{ .y = -1 }),
+                // down
+                self.add(.{ .y = 1 }),
+            };
+        }
+
         /// Rotate the vector 90 clockwise, without the trig
         pub fn rotateClockwise(self: *const Self) Self {
             return .{
                 .x = self.y,
                 .y = -self.x,
+            };
+        }
+
+        pub fn rotateCounterClockwise(self: *const Self) Self {
+            return .{
+                .x = -self.y,
+                .y = self.x,
             };
         }
 
