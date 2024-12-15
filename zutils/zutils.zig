@@ -205,6 +205,15 @@ pub fn Grid(comptime T: type) type {
             self.allocator.free(self.data);
         }
 
+        pub fn clone(self: *const Self) !Self {
+            return .{
+                .allocator = self.allocator,
+                .data = try self.allocator.dupe(T, self.data),
+                .nrows = self.nrows,
+                .ncols = self.ncols,
+            };
+        }
+
         pub fn fill(self: *Self, v: T) void {
             for (self.data) |*it| {
                 it.* = v;
@@ -229,12 +238,28 @@ pub fn Grid(comptime T: type) type {
             }
         }
 
+        pub fn dataIdx(self: *const Self, row: usize, col: usize) usize {
+            return row * self.ncols + col;
+        }
+
+        pub fn dataIdxV(self: *const Self, v: V2(usize)) usize {
+            return self.dataIdx(v.y, v.x);
+        }
+
         pub fn at(self: *const Self, row: usize, col: usize) T {
-            return self.data[row * self.ncols + col];
+            return self.data[self.dataIdx(row, col)];
         }
 
         pub fn atPtr(self: *Self, row: usize, col: usize) *T {
-            return &self.data[row * self.ncols + col];
+            return &self.data[self.dataIdx(row, col)];
+        }
+
+        pub fn atV(self: *const Self, v: V2(usize)) T {
+            return self.at(v.y, v.x);
+        }
+
+        pub fn atPtrV(self: *Self, v: V2(usize)) *T {
+            return self.atPtr(v.y, v.x);
         }
 
         pub fn inBounds(self: *const Self, x: anytype, y: anytype) bool {
@@ -250,15 +275,53 @@ pub fn Grid(comptime T: type) type {
         }
 
         pub fn print(self: *const Self) void {
+            self.printHl(null);
+        }
+
+        pub fn printHl(self: *const Self, highlight: ?[]const V2(usize)) void {
             std.debug.print("<Grid({}) {d}x{d}\n", .{ T, self.nrows, self.ncols });
             var i: usize = 0;
             while (i < self.nrows) : (i += 1) {
                 var j: usize = 0;
-                std.debug.print("  ", .{});
-                while (j < self.ncols) : (j += 1) {
-                    std.debug.print("{}{s}", .{ self.at(i, j), if (j + 1 >= self.ncols) "" else " " });
+                if (T == u8 and (highlight == null or highlight.?.len == 0)) {
+                    std.debug.print(
+                        "  {s} ({d})\n",
+                        .{ self.data[i * self.ncols .. (i + 1) * self.ncols], i },
+                    );
+                } else {
+                    std.debug.print("  ", .{});
+                    while (j < self.ncols) : (j += 1) {
+                        var color: []const u8 = "";
+                        var reset: []const u8 = "";
+                        if (highlight) |hl| {
+                            for (hl) |v| {
+                                if (v.x == j and v.y == i) {
+                                    color = ANSI_RED;
+                                    reset = ANSI_RESET;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (T == u8) {
+                            std.debug.print(
+                                "{s}{c}{s}",
+                                .{ color, self.at(i, j), reset },
+                            );
+                        } else {
+                            std.debug.print(
+                                "{s}{}{s}{s}",
+                                .{
+                                    color,
+                                    self.at(i, j),
+                                    reset,
+                                    if (j + 1 >= self.ncols) "" else " ",
+                                },
+                            );
+                        }
+                    }
+                    std.debug.print("  ({d})\n", .{i});
                 }
-                std.debug.print("\n", .{});
             }
             std.debug.print(">\n", .{});
         }

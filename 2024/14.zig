@@ -29,10 +29,8 @@ fn parseRobots(allocator: std.mem.Allocator, inp: []const []const u8) ![]Robot {
 }
 
 fn moveRobot(bot: *Robot, gsize: V2, steps: isize) void {
-    bot.pos.x += bot.vel.x * steps;
+    bot.pos.addMut(bot.vel.mul(steps));
     bot.pos.x = @mod(bot.pos.x, gsize.x);
-
-    bot.pos.y += bot.vel.y * steps;
     bot.pos.y = @mod(bot.pos.y, gsize.y);
 }
 
