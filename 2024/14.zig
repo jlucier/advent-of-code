@@ -97,7 +97,7 @@ test "example" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/Downloads/14.txt");
+    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/14.txt");
     defer lines.deinit();
     const bots = try parseRobots(std.heap.page_allocator, lines.strings.items);
     defer std.heap.page_allocator.free(bots);

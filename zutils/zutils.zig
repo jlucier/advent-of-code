@@ -328,6 +328,9 @@ pub fn Grid(comptime T: type) type {
     };
 }
 
+pub const V2i = V2(isize);
+pub const V2u = V2(usize);
+
 pub fn V2(comptime T: type) type {
     return struct {
         x: T = 0,

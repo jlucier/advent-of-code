@@ -307,7 +307,7 @@ test "rando" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/Downloads/15.txt");
+    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/15.txt");
     var state = try parseInput(std.heap.page_allocator, lines.strings.items);
     var state2 = try state.createDouble();
     defer state2.deinit();
