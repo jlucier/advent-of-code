@@ -1,5 +1,6 @@
 const std = @import("std");
 
+pub const graph = @import("graph.zig");
 pub const ANSI_RED = "\u{001b}[31m";
 pub const ANSI_GREEN = "\u{001b}[32m";
 pub const ANSI_RESET = "\u{001b}[m";

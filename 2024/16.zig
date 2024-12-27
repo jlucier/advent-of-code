@@ -5,18 +5,6 @@ const V2i = zutils.V2i;
 const Grid = zutils.Grid(u8);
 const Lines = []const []const u8;
 
-const Path = struct {
-    loc: V2i,
-    dir: V2i,
-    dist: usize = 0,
-    est: usize = 0,
-    hist: std.ArrayList(V2i),
-};
-
-fn comparePaths(_: void, a: Path, b: Path) std.math.Order {
-    return if (a.est < b.est) .lt else if (a.est == b.est) .eq else .gt;
-}
-
 fn findStartEnd(grid: *const Grid) [2]V2i {
     var start = V2i{};
     var end = V2i{};
@@ -37,10 +25,94 @@ fn findStartEnd(grid: *const Grid) [2]V2i {
     return .{ start, end };
 }
 
-/// Run A* to find paths. The reason this works for part two is because
-/// the visited cache key is on location + direction, which accounts for
-/// arriving at the same spot facing different ways and not killing that
-/// path
+const DV = struct {
+    pos: V2i,
+    dir: V2i,
+};
+
+const Edge = struct {
+    v: DV,
+    cost: usize,
+};
+
+const DijkCtx = struct {
+    grid: *const Grid,
+};
+
+const DijkSolver = zutils.graph.Dijkstras(DV, Edge, DijkCtx, getNeighbors);
+
+fn printCurr(
+    allocator: std.mem.Allocator,
+    dj: *const DijkSolver,
+    v: *const DijkSolver.Vertex,
+) !void {
+    const grid = dj.context.grid;
+
+    var hl = std.ArrayList(zutils.V2u).init(allocator);
+    defer hl.deinit();
+    try hl.append(v.v.pos.asType(usize));
+
+    var queue = std.ArrayList(*const DijkSolver.Vertex).init(allocator);
+    defer queue.deinit();
+    try queue.append(v);
+
+    while (queue.popOrNull()) |dv| {
+        for (dv.pred.items) |it| {
+            try hl.append(it.pos.asType(usize));
+            try queue.append(dj.verts.getPtr(it).?);
+        }
+    }
+
+    std.debug.print("eval: {} {} {any}\n", .{ v.d, v.v, v.pred.items });
+    grid.printHl(hl.items);
+    std.debug.print("\n", .{});
+}
+
+fn getNeighbors(allocator: std.mem.Allocator, dv: DV, ctx: DijkCtx) ![]Edge {
+    const grid = ctx.grid;
+    var edges = std.ArrayList(Edge).init(allocator);
+    for (dv.pos.neighbors()) |n| {
+        const next_dir = n.sub(dv.pos);
+        // skip if OB
+        if (!n.inGridBounds(@intCast(grid.ncols), @intCast(grid.nrows)) or
+            // skip if turning around
+            next_dir.add(dv.dir).equal(V2i{}) or
+            // skip if wall
+            grid.atV(n.asType(usize)) == '#')
+        {
+            continue;
+        }
+        var move_cost: usize = 1;
+        if (!next_dir.equal(dv.dir)) {
+            move_cost += 1000;
+        }
+
+        try edges.append(.{
+            .v = .{ .pos = n, .dir = next_dir },
+            .cost = move_cost,
+        });
+    }
+    return try edges.toOwnedSlice();
+}
+
+fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
+    var verts = std.ArrayList(DV).init(allocator);
+
+    var iter = grid.iterator();
+    while (iter.next()) |v| {
+        if (grid.atV(v) != '#') {
+            const iv = v.asType(isize);
+            for (iv.neighbors()) |n| {
+                if (n.inGridBounds(@intCast(grid.ncols), @intCast(grid.nrows))) {
+                    const d = n.asType(isize).sub(iv);
+                    try verts.append(.{ .pos = iv, .dir = d });
+                }
+            }
+        }
+    }
+    return verts.toOwnedSlice();
+}
+
 fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
     const grid = try Grid.init2DSlice(allocator, lines);
     defer grid.deinit();
@@ -49,82 +121,41 @@ fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
     const start = res[0];
     const end = res[1];
 
-    var queue = std.PriorityQueue(Path, void, comparePaths).init(allocator, {});
-    defer queue.deinit();
-    try queue.add(.{
-        .loc = start,
-        .dir = .{ .x = 1 },
-        .est = @intCast(end.sub(start).manhattanMag()),
-        .hist = std.ArrayList(V2i).init(allocator),
-    });
+    const initial_verts = try makeVerts(allocator, &grid);
+    defer allocator.free(initial_verts);
 
-    var visited = std.AutoHashMap(V2i, usize).init(allocator);
-    defer visited.deinit();
+    var dj = try DijkSolver.init(
+        allocator,
+        .{ .pos = start, .dir = .{ .x = 1 } },
+        initial_verts,
+        .{ .grid = &grid },
+    );
+    defer dj.deinit();
+    try dj.findPaths(null);
 
-    var overall_best_cost: usize = 0;
-    var best_cells = std.AutoArrayHashMap(V2i, void).init(allocator);
-    defer best_cells.deinit();
-
-    while (queue.removeOrNull()) |p| {
-        if (p.loc.equal(end)) {
-            if (overall_best_cost == 0) {
-                overall_best_cost = p.dist;
+    var best: ?*DijkSolver.Vertex = null;
+    for (dj.verts.values()) |*dv| {
+        if (dv.v.pos.equal(end)) {
+            if (best == null or best.?.d > dv.d) {
+                best = dv;
             }
-
-            if (p.dist == overall_best_cost) {
-                // add squares
-                for (p.hist.items) |v| {
-                    try best_cells.put(v, {});
-                }
-                try best_cells.put(p.loc, {});
-            }
-            p.hist.deinit();
-            continue;
         }
-
-        try visited.put(p.loc, p.dist);
-
-        for (p.loc.neighbors()) |n| {
-            if (p.hist.items.len > 0 and n.equal(p.hist.items[p.hist.items.len - 1])) {
-                continue;
-            }
-            // can move
-            if (!n.inGridBounds(@intCast(grid.ncols), @intCast(grid.nrows)) or
-                grid.atV(n.asType(usize)) == '#')
-            {
-                continue;
-            }
-            const next_dir = n.sub(p.loc);
-
-            // should move
-            var move_cost: usize = 1;
-            if (!next_dir.equal(p.dir)) {
-                move_cost += 1000;
-            }
-
-            const next_cost = p.dist + move_cost;
-            const best_cost = visited.get(n);
-
-            // within one turn
-            if (next_cost > if (best_cost) |bc| bc else std.math.maxInt(usize)) {
-                continue;
-            }
-
-            const remaining_est: usize = @intCast(end.sub(n).manhattanMag());
-            var next_hist = try p.hist.clone();
-            try next_hist.append(p.loc);
-            try queue.add(.{
-                .loc = n,
-                .dir = next_dir,
-                .dist = next_cost,
-                .est = remaining_est + next_cost,
-                .hist = next_hist,
-            });
-        }
-
-        p.hist.deinit();
     }
-    return .{ overall_best_cost, best_cells.count() };
+
+    var best_cells = std.AutoHashMap(V2i, void).init(allocator);
+    defer best_cells.deinit();
+    var queue = std.ArrayList(*const DijkSolver.Vertex).init(allocator);
+    defer queue.deinit();
+    try queue.append(best.?);
+
+    while (queue.popOrNull()) |v| {
+        try best_cells.put(v.v.pos, {});
+        for (v.pred.items) |p| {
+            try queue.append(dj.verts.getPtr(p).?);
+        }
+    }
+
+    return .{ best.?.d, best_cells.count() };
 }
 
 test "example1" {
