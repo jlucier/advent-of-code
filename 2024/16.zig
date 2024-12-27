@@ -209,9 +209,11 @@ test "example2" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/16.txt");
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const alloc = arena.allocator();
+    const lines = try zutils.readLines(alloc, "~/sync/dev/aoc_inputs/2024/16.txt");
 
-    const ans = try parts(std.heap.page_allocator, lines.strings.items);
+    const ans = try parts(alloc, lines.strings.items);
     std.debug.print("p1: {d}\n", .{ans[0]});
     std.debug.print("p2: {d}\n", .{ans[1]});
 }
