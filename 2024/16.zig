@@ -70,7 +70,7 @@ fn printCurr(
 
 fn getNeighbors(allocator: std.mem.Allocator, dv: DV, ctx: DijkCtx) ![]Edge {
     const grid = ctx.grid;
-    var edges = std.ArrayList(Edge).init(allocator);
+    var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
     for (dv.pos.neighbors()) |n| {
         const next_dir = n.sub(dv.pos);
         // skip if OB
@@ -87,7 +87,7 @@ fn getNeighbors(allocator: std.mem.Allocator, dv: DV, ctx: DijkCtx) ![]Edge {
             move_cost += 1000;
         }
 
-        try edges.append(.{
+        edges.appendAssumeCapacity(.{
             .v = .{ .pos = n, .dir = next_dir },
             .cost = move_cost,
         });
@@ -104,8 +104,7 @@ fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
             const iv = v.asType(isize);
             for (iv.neighbors()) |n| {
                 if (n.inGridBounds(@intCast(grid.ncols), @intCast(grid.nrows))) {
-                    const d = n.asType(isize).sub(iv);
-                    try verts.append(.{ .pos = iv, .dir = d });
+                    try verts.append(.{ .pos = iv, .dir = n.asType(isize).sub(iv) });
                 }
             }
         }
@@ -133,7 +132,7 @@ fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
     defer dj.deinit();
     try dj.findPaths(null);
 
-    var best: ?*DijkSolver.Vertex = null;
+    var best: ?*const DijkSolver.Vertex = null;
     for (dj.verts.values()) |*dv| {
         if (dv.v.pos.equal(end)) {
             if (best == null or best.?.d > dv.d) {
@@ -144,15 +143,11 @@ fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
 
     var best_cells = std.AutoHashMap(V2i, void).init(allocator);
     defer best_cells.deinit();
-    var queue = std.ArrayList(*const DijkSolver.Vertex).init(allocator);
-    defer queue.deinit();
-    try queue.append(best.?);
+    var iter = try dj.pathIterator(best.?.v);
+    defer iter.deinit();
 
-    while (queue.popOrNull()) |v| {
-        try best_cells.put(v.v.pos, {});
-        for (v.pred.items) |p| {
-            try queue.append(dj.verts.getPtr(p).?);
-        }
+    while (try iter.next()) |v| {
+        try best_cells.put(v.pos, {});
     }
 
     return .{ best.?.d, best_cells.count() };

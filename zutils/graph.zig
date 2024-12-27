@@ -50,6 +50,7 @@ pub fn Dijkstras(
                 .pred = PredList.init(allocator),
             });
 
+            dv.lockPointers();
             return .{
                 .allocator = allocator,
                 .start = start,
@@ -62,6 +63,7 @@ pub fn Dijkstras(
             for (self.verts.values()) |*dv| {
                 dv.deinit();
             }
+            self.verts.unlockPointers();
             self.verts.deinit();
         }
 
@@ -85,7 +87,6 @@ pub fn Dijkstras(
             defer visited.deinit();
             try visited.ensureTotalCapacity(self.verts.capacity());
 
-            // main loop
             while (queue.removeOrNull()) |u| {
                 visited.putAssumeCapacity(u.v, {});
                 if (print) |p| {
@@ -114,6 +115,35 @@ pub fn Dijkstras(
                     }
                 }
             }
+        }
+
+        const PathIterator = struct {
+            dj: *const Self,
+            queue: std.ArrayList(*const Vertex),
+
+            pub fn deinit(self: *const PathIterator) void {
+                self.queue.deinit();
+            }
+
+            pub fn next(self: *PathIterator) !?VData {
+                const ret = self.queue.popOrNull();
+                if (ret) |dv| {
+                    for (dv.pred.items) |p| {
+                        try self.queue.append(self.dj.verts.getPtr(p).?);
+                    }
+                }
+
+                return if (ret) |dv| dv.v else null;
+            }
+        };
+
+        pub fn pathIterator(self: *const Self, v: VData) !PathIterator {
+            var q = try std.ArrayList(*const Vertex).initCapacity(self.allocator, 1);
+            q.appendAssumeCapacity(self.verts.getPtr(v).?);
+            return .{
+                .dj = self,
+                .queue = q,
+            };
         }
     };
 }
