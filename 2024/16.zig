@@ -30,16 +30,12 @@ const DV = struct {
     dir: V2i,
 };
 
-const Edge = struct {
-    v: DV,
-    cost: usize,
-};
-
 const DijkCtx = struct {
     grid: *const Grid,
 };
 
-const DijkSolver = zutils.graph.Dijkstras(DV, Edge, DijkCtx, getNeighbors);
+const DijkSolver = zutils.graph.Dijkstras(DV, DijkCtx);
+const Edge = DijkSolver.Edge;
 
 fn printCurr(
     allocator: std.mem.Allocator,
@@ -130,7 +126,7 @@ fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
         .{ .grid = &grid },
     );
     defer dj.deinit();
-    try dj.findPaths(null);
+    try dj.findPaths(getNeighbors);
 
     var best: ?*const DijkSolver.Vertex = null;
     for (dj.verts.values()) |*dv| {

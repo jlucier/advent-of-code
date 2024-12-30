@@ -1,12 +1,7 @@
 const std = @import("std");
 
 /// Create a dijkstras solver given a type for the node and function
-pub fn Dijkstras(
-    comptime VData: type,
-    comptime ET: type,
-    comptime Context: type,
-    getAdjacent: fn (allocator: std.mem.Allocator, v: VData, ctx: Context) std.mem.Allocator.Error![]ET,
-) type {
+pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
     return struct {
         const PredList = std.ArrayList(VData);
 
@@ -23,6 +18,17 @@ pub fn Dijkstras(
                 return if (a.d < b.d) .lt else if (a.d == b.d) .eq else .gt;
             }
         };
+
+        pub const Edge = struct {
+            cost: usize,
+            v: VData,
+        };
+
+        const AdjFn = fn (
+            allcator: std.mem.Allocator,
+            v: VData,
+            ctx: Context,
+        ) std.mem.Allocator.Error![]Edge;
 
         const Self = @This();
 
@@ -67,8 +73,13 @@ pub fn Dijkstras(
             self.verts.deinit();
         }
 
-        pub fn findPaths(
+        pub fn findPaths(self: *Self, getAdjacent: AdjFn) !void {
+            return self.findPathsPrint(getAdjacent, null);
+        }
+
+        pub fn findPathsPrint(
             self: *Self,
+            getAdjacent: AdjFn,
             print: ?fn (
                 allocator: std.mem.Allocator,
                 dj: *const Self,
