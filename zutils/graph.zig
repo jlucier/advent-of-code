@@ -119,12 +119,11 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             defer queue.deinit();
             try queue.add(self.verts.getPtr(self.start).?);
 
-            var visited = std.AutoArrayHashMap(VData, void).init(self.allocator);
-            defer visited.deinit();
-            try visited.ensureTotalCapacity(self.verts.capacity());
+            var visited = try self.allocator.alloc(bool, self.verts.capacity());
+            defer self.allocator.free(visited);
 
             while (queue.removeOrNull()) |u| {
-                visited.putAssumeCapacity(u.v, {});
+                visited[self.verts.getIndex(u.v).?] = true;
                 if (print) |p| {
                     try p(self.allocator, self, u);
                 }
@@ -132,11 +131,12 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
                 const edges = try getAdjacent(self.allocator, u.v, self.context);
                 defer self.allocator.free(edges);
                 for (edges) |n| {
-                    if (visited.get(n.v) != null) {
+                    const dv_i = self.verts.getIndex(n.v).?;
+                    if (visited[dv_i]) {
                         continue;
                     }
 
-                    const dv = self.verts.getPtr(n.v).?;
+                    const dv = &self.verts.values()[dv_i];
                     const next_cost = u.d + n.cost;
                     if (next_cost < dv.d) {
                         // cost was beaten, relax and replace with single predecessor
@@ -156,30 +156,46 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
         const PathIterator = struct {
             dj: *const Self,
             queue: std.ArrayList(*const Vertex),
+            seen: ?std.AutoHashMap(VData, void),
 
-            pub fn deinit(self: *const PathIterator) void {
+            fn init(dj: *const Self, start: VData, unique: bool) !PathIterator {
+                var q = try std.ArrayList(*const Vertex).initCapacity(dj.allocator, 1);
+                q.appendAssumeCapacity(dj.verts.getPtr(start).?);
+                return .{
+                    .dj = dj,
+                    .queue = q,
+                    .seen = if (!unique) null else std.AutoHashMap(VData, void).init(dj.allocator),
+                };
+            }
+
+            pub fn deinit(self: *PathIterator) void {
                 self.queue.deinit();
+                if (self.seen) |*s| s.deinit();
             }
 
             pub fn next(self: *PathIterator) !?VData {
-                const ret = self.queue.popOrNull();
-                if (ret) |dv| {
+                while (self.queue.popOrNull()) |dv| {
+                    if (self.seen) |*s| {
+                        // if already retured, skip, otherwise add as we will return
+                        if ((try s.getOrPut(dv.v)).found_existing) {
+                            continue;
+                        }
+                    }
+
                     for (dv.pred.items) |p| {
                         try self.queue.append(self.dj.verts.getPtr(p).?);
                     }
-                }
 
-                return if (ret) |dv| dv.v else null;
+                    return dv.v;
+                }
+                return null;
             }
         };
 
-        pub fn pathIterator(self: *const Self, v: VData) !PathIterator {
-            var q = try std.ArrayList(*const Vertex).initCapacity(self.allocator, 1);
-            q.appendAssumeCapacity(self.verts.getPtr(v).?);
-            return .{
-                .dj = self,
-                .queue = q,
-            };
+        /// Return an iterator over VData's which are located along the path. Optionally
+        /// only the unique ones
+        pub fn pathIterator(self: *const Self, v: VData, unique: bool) !PathIterator {
+            return try PathIterator.init(self, v, unique);
         }
     };
 }
