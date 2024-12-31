@@ -188,9 +188,9 @@ test "p2" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/4.txt");
-    const a1 = try p1(std.heap.page_allocator, lines.strings.items);
-    const a2 = try p2(std.heap.page_allocator, lines.strings.items);
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/4.txt");
+    const a1 = try p1(std.heap.page_allocator, lines.items());
+    const a2 = try p2(std.heap.page_allocator, lines.items());
 
     std.debug.print("p1: {d}\n", .{a1});
     std.debug.print("p2: {d}\n", .{a2});

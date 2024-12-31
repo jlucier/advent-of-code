@@ -151,8 +151,8 @@ test "example" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/10.txt");
-    var st = try State.initParse(std.heap.page_allocator, lines.strings.items);
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/10.txt");
+    var st = try State.initParse(std.heap.page_allocator, lines.items());
     defer st.deinit();
 
     const ans = try st.parts();

@@ -181,19 +181,19 @@ test "p2 harder" {
 }
 
 pub fn main() void {
-    const moves = zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/9.txt") catch {
+    const moves = zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/9.txt") catch {
         std.debug.print("Failed to read file\n", .{});
         return;
     };
     defer moves.deinit();
 
-    const p1 = trackTail(std.heap.page_allocator, moves.strings.items, 2) catch {
+    const p1 = trackTail(std.heap.page_allocator, moves.items(), 2) catch {
         std.debug.print("Failed to process moves\n", .{});
         return;
     };
     std.debug.print("p1: {d}\n", .{p1});
 
-    const p2 = trackTail(std.heap.page_allocator, moves.strings.items, 10) catch {
+    const p2 = trackTail(std.heap.page_allocator, moves.items(), 10) catch {
         std.debug.print("Failed to process moves\n", .{});
         return;
     };

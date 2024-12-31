@@ -65,10 +65,10 @@ test "simple" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/11.txt");
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/11.txt");
     defer lines.deinit();
 
-    var list = try parseStones(std.heap.page_allocator, lines.strings.items[0]);
+    var list = try parseStones(std.heap.page_allocator, lines.items()[0]);
     defer list.deinit();
 
     const p1 = try blinkNTimes(std.heap.page_allocator, &list, 25);

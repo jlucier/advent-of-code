@@ -109,8 +109,8 @@ test "parts" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/8.txt");
-    const ans = try parts(std.heap.page_allocator, lines.strings.items);
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/8.txt");
+    const ans = try parts(std.heap.page_allocator, lines.items());
 
     std.debug.print("p1: {d}\n", .{ans[0]});
     std.debug.print("p2: {d}\n", .{ans[1]});

@@ -180,17 +180,17 @@ test "test both parts" {
 }
 
 pub fn main() void {
-    const lines = zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/5.txt") catch {
+    const lines = zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/5.txt") catch {
         std.debug.print("Could not read input\n", .{});
         return;
     };
 
-    doIt(std.heap.page_allocator, lines.strings.items, 0) catch {
+    doIt(std.heap.page_allocator, lines.items(), 0) catch {
         std.debug.print("Failed to do it\n", .{});
         return;
     };
 
-    doIt(std.heap.page_allocator, lines.strings.items, 1) catch {
+    doIt(std.heap.page_allocator, lines.items(), 1) catch {
         std.debug.print("Failed to do it\n", .{});
         return;
     };

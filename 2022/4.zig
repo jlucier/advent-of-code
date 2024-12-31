@@ -26,15 +26,19 @@ fn parseRange(str: []const u8) !Range {
 const BadLine = error{BadLine};
 
 fn parseLine(allocator: std.mem.Allocator, line: []const u8) ![2]Range {
-    const sl = try zutils.splitIntoList(allocator, line, ",");
+    var sl = zutils.StringList.init(allocator);
     defer sl.deinit();
+    var iter = std.mem.splitScalar(u8, line, ',');
+    while (iter.next()) |p| {
+        try sl.append(try allocator.dupe(u8, p));
+    }
 
     if (sl.size() != 2) {
         return error.BadLine;
     }
 
-    const p1 = sl.strings.items[0];
-    const p2 = sl.strings.items[1];
+    const p1 = sl.items()[0];
+    const p2 = sl.items()[1];
     return .{
         try parseRange(p1),
         try parseRange(p2),
@@ -77,7 +81,7 @@ test "overlaps" {
 }
 
 pub fn main() void {
-    const ll = zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/4.txt") catch {
+    const ll = zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/4.txt") catch {
         std.debug.print("Could not read file\n", .{});
         return;
     };
@@ -86,7 +90,7 @@ pub fn main() void {
     var contained: u32 = 0;
     var overlaps: u32 = 0;
 
-    for (ll.strings.items) |ln| {
+    for (ll.items()) |ln| {
         const ln_ranges = parseLine(std.heap.page_allocator, ln) catch {
             std.debug.print("Failed to parse line: {s}\n", .{ln});
             return;

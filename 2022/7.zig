@@ -207,12 +207,12 @@ test "p1" {
 }
 
 pub fn main() void {
-    const lines = zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/7.txt") catch {
+    const lines = zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/7.txt") catch {
         std.debug.print("Failed to read input\n", .{});
         return;
     };
 
-    var fs = makeFS(std.heap.page_allocator, lines.strings.items) catch {
+    var fs = makeFS(std.heap.page_allocator, lines.items()) catch {
         std.debug.print("Failed to parse\n", .{});
         return;
     };

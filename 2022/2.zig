@@ -78,7 +78,7 @@ test "p2" {
 
 pub fn main() void {
     const allocator = std.heap.page_allocator;
-    const ll = zutils.readLines(allocator, "~/sync/dev/aoc_inputs/2022/2.txt") catch {
+    const ll = zutils.fs.readLines(allocator, "~/sync/dev/aoc_inputs/2022/2.txt") catch {
         std.debug.print("failed to read\n", .{});
         return;
     };
@@ -87,7 +87,7 @@ pub fn main() void {
     var p1: u32 = 0;
     var p2: u32 = 0;
 
-    for (ll.strings.items) |ln| {
+    for (ll.items()) |ln| {
         if (ln.len != 3) {
             std.debug.print("Unexpected length of line: {d} {s}\n", .{ ln.len, ln });
             return;

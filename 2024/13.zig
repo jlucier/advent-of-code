@@ -88,10 +88,10 @@ test "example" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/13.txt");
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/13.txt");
     defer lines.deinit();
 
-    const games = try parseInput(std.heap.page_allocator, lines.strings.items);
+    const games = try parseInput(std.heap.page_allocator, lines.items());
     defer std.heap.page_allocator.free(games);
 
     std.debug.print("p1: {d}\n", .{solve(games, 0)});

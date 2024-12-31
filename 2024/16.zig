@@ -162,7 +162,9 @@ test "example1" {
         "###############",
     };
 
-    const ans = try parts(std.testing.allocator, &inp);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const ans = try parts(&arena, &inp);
     try std.testing.expectEqual(7036, ans[0]);
     try std.testing.expectEqual(45, ans[1]);
 }
@@ -188,7 +190,9 @@ test "example2" {
         "#################",
     };
 
-    const ans = try parts(std.testing.allocator, &inp);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const ans = try parts(&arena, &inp);
     try std.testing.expectEqual(11048, ans[0]);
     try std.testing.expectEqual(64, ans[1]);
 }
@@ -196,9 +200,9 @@ test "example2" {
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const lines = try zutils.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/16.txt");
+    const lines = try zutils.fs.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/16.txt");
 
-    const ans = try parts(&arena, lines.strings.items);
+    const ans = try parts(&arena, lines.items());
     std.debug.print("p1: {d}\n", .{ans[0]});
     std.debug.print("p2: {d}\n", .{ans[1]});
 }

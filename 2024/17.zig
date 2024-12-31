@@ -240,10 +240,10 @@ test "p2" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/17.txt");
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/17.txt");
     defer lines.deinit();
 
-    const ans = try parts(std.heap.page_allocator, lines.strings.items);
+    const ans = try parts(std.heap.page_allocator, lines.items());
     defer std.heap.page_allocator.free(ans.p1);
 
     std.debug.print("p1: {s}\n", .{ans.p1});

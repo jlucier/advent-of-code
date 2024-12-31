@@ -102,8 +102,8 @@ test "one" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/12.txt");
-    const d = try findShortestPath(std.heap.page_allocator, lines.strings.items);
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/12.txt");
+    const d = try findShortestPath(std.heap.page_allocator, lines.items());
 
     std.debug.print("p1: {d}\n", .{d});
 }

@@ -69,14 +69,14 @@ test "p1" {
     );
     defer std.testing.allocator.free(p);
 
-    const lines = try zutils.readLines(std.testing.allocator, p);
+    const lines = try zutils.fs.readLines(std.testing.allocator, p);
     defer lines.deinit();
 
-    try std.testing.expectEqual(13140, try runInstuctions(lines.strings.items));
+    try std.testing.expectEqual(13140, try runInstuctions(lines.items()));
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/10.txt");
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/10.txt");
     defer lines.deinit();
-    std.debug.print("p1: {}\n", .{try runInstuctions(lines.strings.items)});
+    std.debug.print("p1: {}\n", .{try runInstuctions(lines.items())});
 }

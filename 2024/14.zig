@@ -97,16 +97,16 @@ test "example" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/14.txt");
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/14.txt");
     defer lines.deinit();
-    const bots = try parseRobots(std.heap.page_allocator, lines.strings.items);
+    const bots = try parseRobots(std.heap.page_allocator, lines.items());
     defer std.heap.page_allocator.free(bots);
 
     const gsize = V2{ .x = 101, .y = 103 };
     const a1 = try part1(bots, gsize);
     std.debug.print("p1: {d}\n", .{a1});
 
-    // const bots2 = try parseRobots(std.heap.page_allocator, lines.strings.items);
+    // const bots2 = try parseRobots(std.heap.page_allocator, lines.items());
     // defer std.heap.page_allocator.free(bots2);
     // var i: usize = 210;
     // const d: isize = 101;

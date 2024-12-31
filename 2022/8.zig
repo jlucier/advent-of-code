@@ -166,12 +166,12 @@ test "p2" {
 }
 
 pub fn main() void {
-    const ll = zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/8.txt") catch {
+    const ll = zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/8.txt") catch {
         std.debug.print("Could not read file\n", .{});
         return;
     };
 
-    var grid = makeGrid(std.heap.page_allocator, ll.strings.items) catch {
+    var grid = makeGrid(std.heap.page_allocator, ll.items()) catch {
         std.debug.print("Could not make grid\n", .{});
         return;
     };

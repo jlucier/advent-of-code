@@ -6,6 +6,11 @@ pub const vec = @import("vec.zig");
 pub const grid = @import("grid.zig");
 pub const graph = @import("graph.zig");
 
+pub const Grid = grid.Grid;
+pub const V2 = vec.V2;
+pub const V2u = vec.V2u;
+pub const V2i = vec.V2i;
+
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 pub const StringList = struct {

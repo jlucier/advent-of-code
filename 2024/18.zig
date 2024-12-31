@@ -160,7 +160,9 @@ test "ex" {
         "2,0",
     };
 
-    const ans = try parts(std.testing.allocator, 7, &inp, 12);
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const ans = try parts(&arena, 7, &inp, 12);
 
     try std.testing.expectEqual(22, ans.p1);
     try std.testing.expectEqualStrings("6,1", ans.p2);
@@ -173,9 +175,9 @@ pub fn main() !void {
     // so that none of the further operations cause it to grow. Fun.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const lines = try zutils.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/18.txt");
+    const lines = try zutils.fs.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/18.txt");
 
-    const ans = try parts(&arena, 71, lines.strings.items, 1024);
+    const ans = try parts(&arena, 71, lines.items(), 1024);
 
     std.debug.print("p1: {d}\n", .{ans.p1});
     std.debug.print("p2: {s}\n", .{ans.p2});

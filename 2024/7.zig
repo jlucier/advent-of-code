@@ -100,9 +100,9 @@ pub fn main() !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const lines = try zutils.readLines(allocator, "~/sync/dev/aoc_inputs/2024/7.txt");
+    const lines = try zutils.fs.readLines(allocator, "~/sync/dev/aoc_inputs/2024/7.txt");
 
-    const res = try checkSolvable(allocator, lines.strings.items);
+    const res = try checkSolvable(allocator, lines.items());
     std.debug.print("p1: {d}\n", .{res[0]});
     std.debug.print("p2: {d}\n", .{res[1]});
 }

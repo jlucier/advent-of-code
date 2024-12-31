@@ -192,10 +192,10 @@ test "parts" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/11.txt");
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/11.txt");
     defer lines.deinit();
-    const p1 = try monkeyBusiness(std.heap.page_allocator, lines.strings.items, 1);
-    const p2 = try monkeyBusiness(std.heap.page_allocator, lines.strings.items, 2);
+    const p1 = try monkeyBusiness(std.heap.page_allocator, lines.items(), 1);
+    const p2 = try monkeyBusiness(std.heap.page_allocator, lines.items(), 2);
     std.debug.print("p1: {d}\n", .{p1});
     std.debug.print("p2: {d}\n", .{p2});
 }

@@ -192,8 +192,8 @@ pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
-    const lines = try zutils.readLines(allocator, "~/sync/dev/aoc_inputs/2024/9.txt");
-    const ln = lines.strings.items[0];
+    const lines = try zutils.fs.readLines(allocator, "~/sync/dev/aoc_inputs/2024/9.txt");
+    const ln = lines.items()[0];
 
     var layout1 = try Layout.init(allocator, ln);
     try layout1.compactP1();

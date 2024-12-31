@@ -3,7 +3,7 @@ const zutils = @import("zutils");
 
 pub fn main() void {
     const allocator = std.heap.page_allocator;
-    const ll = zutils.readLines(allocator, "~/sync/dev/aoc_inputs/2022/1.txt") catch {
+    const ll = zutils.fs.readLines(allocator, "~/sync/dev/aoc_inputs/2022/1.txt") catch {
         std.debug.print("Failed to read", .{});
         return;
     };
@@ -12,7 +12,7 @@ pub fn main() void {
     var curr: u32 = 0;
     var totals = std.ArrayList(u32).init(allocator);
 
-    for (ll.strings.items) |ln| {
+    for (ll.items()) |ln| {
         if (ln.len == 0) {
             totals.append(curr) catch {
                 std.debug.print("Failed to grow array\n", .{});

@@ -87,8 +87,8 @@ test "tests" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/1.txt");
-    const res = try doParts(std.heap.page_allocator, lines.strings.items);
+    const lines = try zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/1.txt");
+    const res = try doParts(std.heap.page_allocator, lines.items());
 
     std.debug.print("p1: {d}\np2: {d}\n", .{ res[0], res[1] });
 }

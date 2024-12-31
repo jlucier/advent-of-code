@@ -96,14 +96,14 @@ test "test input" {
 }
 
 pub fn main() void {
-    const ll = zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/3.txt") catch {
+    const ll = zutils.fs.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2022/3.txt") catch {
         std.debug.print("Failed to read\n", .{});
         return;
     };
     defer ll.deinit();
 
     // p1
-    const p1 = p1Sacks(ll.strings.items) catch {
+    const p1 = p1Sacks(ll.items()) catch {
         std.debug.print("Failed to process\n", .{});
         return;
     };
@@ -114,7 +114,7 @@ pub fn main() void {
     var i: u32 = 0;
     var p2: u32 = 0;
     while (i < ll.size()) : (i += 3) {
-        p2 += getBadge(std.heap.page_allocator, ll.strings.items[i .. i + 3]) catch {
+        p2 += getBadge(std.heap.page_allocator, ll.items()[i .. i + 3]) catch {
             std.debug.print("Failed to get badge on input {d}", .{i});
             return;
         };
