@@ -70,44 +70,17 @@ fn onPath(dj: *const DijkSolver, end: V2u, bad: V2u) !bool {
     return false;
 }
 
-fn onPathOld(allocator: std.mem.Allocator, dj: *const DijkSolver, end: V2u, bad: V2u) !bool {
-    var queue = std.ArrayList(V2u).init(allocator);
-    defer queue.deinit();
-    var seen = std.AutoHashMap(V2u, void).init(allocator);
-    defer seen.deinit();
-    try queue.append(end);
-
-    while (queue.popOrNull()) |v| {
-        if (v.equal(bad)) {
-            return true;
-        }
-
-        try seen.put(v, {});
-
-        const dv = dj.verts.getPtr(v).?;
-        for (dv.pred.items) |prev| {
-            const res = try seen.getOrPut(prev);
-            if (!res.found_existing) {
-                try queue.append(prev);
-            }
-        }
-    }
-    return false;
-}
-
 const Ans = struct {
     p1: usize,
     p2: []const u8,
 };
 
 fn parts(
-    child: std.mem.Allocator,
+    arena: *std.heap.ArenaAllocator,
     grid_size: usize,
     lines: []const []const u8,
     run_n: usize,
 ) !Ans {
-    var arena = std.heap.ArenaAllocator.init(child);
-    defer arena.deinit();
     const allocator = arena.allocator();
 
     var grid = try Grid.init(allocator, grid_size, grid_size);
@@ -121,7 +94,7 @@ fn parts(
     const end = V2u{ .x = @intCast(grid.ncols - 1), .y = @intCast(grid.nrows - 1) };
     const initial_verts = try makeVerts(allocator, &grid);
 
-    var dj = try DijkSolver.initWithArena(&arena, start, initial_verts, .{ .grid = &grid });
+    var dj = try DijkSolver.initWithArena(arena, start, initial_verts, .{ .grid = &grid });
 
     // solve p1
     try dj.findPaths(getNeighbors);
@@ -135,7 +108,6 @@ fn parts(
         try readFallingBytes(&grid, lines[i .. i + 1]);
 
         const loc = try parseV2(lines[i]);
-        // const op = try onPathOld(allocator, &dj, end, loc);
         const op = try onPath(&dj, end, loc);
 
         if (op) {
@@ -195,10 +167,15 @@ test "ex" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/18.txt");
-    defer lines.deinit();
+    // Why go through all the effort to make the dijstras implementation able to create its own
+    // arena just to avoid using that and plubming in our own? Turns out that loading all the
+    // input data and initial stuff into the same arena seems to "prime" it with enough space
+    // so that none of the further operations cause it to grow. Fun.
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const lines = try zutils.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/18.txt");
 
-    const ans = try parts(std.heap.page_allocator, 71, lines.strings.items, 1024);
+    const ans = try parts(&arena, 71, lines.strings.items, 1024);
 
     std.debug.print("p1: {d}\n", .{ans.p1});
     std.debug.print("p2: {s}\n", .{ans.p2});

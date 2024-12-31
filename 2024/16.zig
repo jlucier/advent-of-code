@@ -106,11 +106,8 @@ fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
     return verts.toOwnedSlice();
 }
 
-fn parts(child: std.mem.Allocator, lines: Lines) ![2]usize {
-    var arena = std.heap.ArenaAllocator.init(child);
-    defer arena.deinit();
+fn parts(arena: *std.heap.ArenaAllocator, lines: Lines) ![2]usize {
     const allocator = arena.allocator();
-
     const grid = try Grid.init2DSlice(allocator, lines);
 
     const res = findStartEnd(&grid);
@@ -120,7 +117,7 @@ fn parts(child: std.mem.Allocator, lines: Lines) ![2]usize {
     const initial_verts = try makeVerts(allocator, &grid);
 
     var dj = try DijkSolver.initWithArena(
-        &arena,
+        arena,
         .{ .pos = start, .dir = .{ .x = 1 } },
         initial_verts,
         .{ .grid = &grid },
@@ -197,10 +194,11 @@ test "example2" {
 }
 
 pub fn main() !void {
-    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/16.txt");
-    defer lines.deinit();
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const lines = try zutils.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/16.txt");
 
-    const ans = try parts(std.heap.page_allocator, lines.strings.items);
+    const ans = try parts(&arena, lines.strings.items);
     std.debug.print("p1: {d}\n", .{ans[0]});
     std.debug.print("p2: {d}\n", .{ans[1]});
 }
