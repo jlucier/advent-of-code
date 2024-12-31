@@ -67,12 +67,11 @@ fn printCurr(
 fn getNeighbors(allocator: std.mem.Allocator, dv: DV, ctx: DijkCtx) ![]Edge {
     const grid = ctx.grid;
     var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
-    for (dv.pos.neighbors()) |n| {
+    var niter = dv.pos.iterNeighborsInGridBounds(grid.ncols, grid.nrows);
+    while (niter.next()) |n| {
         const next_dir = n.sub(dv.pos);
-        // skip if OB
-        if (!n.inGridBounds(@intCast(grid.ncols), @intCast(grid.nrows)) or
-            // skip if turning around
-            next_dir.add(dv.dir).equal(V2i{}) or
+        // skip if turning around
+        if (next_dir.add(dv.dir).equal(V2i{}) or
             // skip if wall
             grid.atV(n.asType(usize)) == '#')
         {
@@ -98,10 +97,9 @@ fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
     while (iter.next()) |v| {
         if (grid.atV(v) != '#') {
             const iv = v.asType(isize);
-            for (iv.neighbors()) |n| {
-                if (n.inGridBounds(@intCast(grid.ncols), @intCast(grid.nrows))) {
-                    try verts.append(.{ .pos = iv, .dir = n.asType(isize).sub(iv) });
-                }
+            var niter = iv.iterNeighborsInGridBounds(grid.ncols, grid.nrows);
+            while (niter.next()) |n| {
+                try verts.append(.{ .pos = iv, .dir = n.asType(isize).sub(iv) });
             }
         }
     }

@@ -14,6 +14,11 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
                 self.pred.deinit();
             }
 
+            fn reset(self: *Vertex) void {
+                self.d = std.math.maxInt(usize);
+                self.pred.clearRetainingCapacity();
+            }
+
             fn compare(_: void, a: *const Vertex, b: *const Vertex) std.math.Order {
                 return if (a.d < b.d) .lt else if (a.d == b.d) .eq else .gt;
             }
@@ -71,6 +76,26 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             }
             self.verts.unlockPointers();
             self.verts.deinit();
+        }
+
+        /// Resets the state so another call to findPaths can run correctly
+        pub fn reset(self: *Self) void {
+            for (self.verts.values()) |*v| {
+                v.reset();
+            }
+            // make sure to set the start cost to 0
+            self.verts.getPtr(self.start).?.d = 0;
+        }
+
+        pub fn removeVertex(self: *Self, v: VData) bool {
+            var removed = false;
+            self.verts.unlockPointers();
+            if (self.verts.fetchSwapRemove(v)) |entry| {
+                entry.value.deinit();
+                removed = true;
+            }
+            self.verts.lockPointers();
+            return removed;
         }
 
         pub fn findPaths(self: *Self, getAdjacent: AdjFn) !void {

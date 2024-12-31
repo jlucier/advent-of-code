@@ -423,19 +423,6 @@ pub fn V2(comptime T: type) type {
             };
         }
 
-        pub fn neighbors(self: *const Self) [4]V2(T) {
-            return .{
-                // left
-                self.add(.{ .x = -1 }),
-                // right
-                self.add(.{ .x = 1 }),
-                // up
-                self.add(.{ .y = -1 }),
-                // down
-                self.add(.{ .y = 1 }),
-            };
-        }
-
         /// Rotate the vector 90 clockwise, without the trig
         pub fn rotateClockwise(self: *const Self) Self {
             return .{
@@ -490,6 +477,79 @@ pub fn V2(comptime T: type) type {
                     };
                 },
                 else => @compileError("V2 type needs to be numeric"),
+            };
+        }
+
+        const NeighborIterator = struct {
+            v: Self,
+            i: usize = 0,
+            nrows: usize,
+            ncols: usize,
+
+            pub fn next(self: *NeighborIterator) ?Self {
+                while (self.i < 4) {
+                    var next_v: ?Self = null;
+
+                    // this logic is implmented in a way that should work and be safe regardless
+                    // of whether the T is signed or unsigned
+                    switch (self.i) {
+                        0 => {
+                            if (self.v.x >= 1) {
+                                next_v = .{ .x = self.v.x - 1, .y = self.v.y };
+                            }
+                        },
+                        1 => {
+                            if (self.v.x + 1 < self.ncols) {
+                                next_v = .{ .x = self.v.x + 1, .y = self.v.y };
+                            }
+                        },
+                        2 => {
+                            if (self.v.y >= 1) {
+                                next_v = .{ .x = self.v.x, .y = self.v.y - 1 };
+                            }
+                        },
+                        3 => {
+                            if (self.v.y + 1 < self.nrows) {
+                                next_v = .{ .x = self.v.x, .y = self.v.y + 1 };
+                            }
+                        },
+                        else => unreachable,
+                    }
+
+                    self.i += 1;
+                    if (next_v) |ret| {
+                        return ret;
+                    }
+                }
+                return null;
+            }
+        };
+
+        /// Return all four cardinal direction neighbors of the vector, no checking
+        /// for bounds / overflows
+        pub fn neighbors(self: *const Self) [4]Self {
+            return .{
+                // left
+                .{ .x = self.x - 1, .y = self.y },
+                // right
+                .{ .x = self.x + 1, .y = self.y },
+                // up
+                .{ .x = self.x, .y = self.y - 1 },
+                // down
+                .{ .x = self.x, .y = self.y + 1 },
+            };
+        }
+
+        /// Returns an iterator over neighbors in grid bounds
+        pub fn iterNeighborsInGridBounds(
+            self: *const Self,
+            ncols: usize,
+            nrows: usize,
+        ) NeighborIterator {
+            return .{
+                .v = self.*,
+                .nrows = nrows,
+                .ncols = ncols,
             };
         }
     };
