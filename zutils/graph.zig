@@ -10,10 +10,6 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             d: usize = std.math.maxInt(usize),
             pred: PredList,
 
-            fn deinit(self: *const Vertex) void {
-                self.pred.deinit();
-            }
-
             fn reset(self: *Vertex) void {
                 self.d = std.math.maxInt(usize);
                 self.pred.clearRetainingCapacity();
@@ -37,17 +33,19 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
 
         const Self = @This();
 
-        allocator: std.mem.Allocator,
+        arena_owned: bool = false,
+        arena: *std.heap.ArenaAllocator,
         start: VData,
         verts: std.AutoArrayHashMap(VData, Vertex),
         context: Context,
 
-        pub fn init(
-            allocator: std.mem.Allocator,
+        pub fn initWithArena(
+            arena: *std.heap.ArenaAllocator,
             start: VData,
             initial_verts: []VData,
             context: Context,
         ) !Self {
+            const allocator = arena.allocator();
             var dv = std.AutoArrayHashMap(VData, Vertex).init(allocator);
             try dv.ensureTotalCapacity(initial_verts.len);
 
@@ -63,19 +61,32 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
 
             dv.lockPointers();
             return .{
-                .allocator = allocator,
+                .arena = arena,
                 .start = start,
                 .verts = dv,
                 .context = context,
             };
         }
 
+        pub fn init(
+            allocator: std.mem.Allocator,
+            start: VData,
+            initial_verts: []VData,
+            context: Context,
+        ) !Self {
+            const arena = try allocator.create(std.heap.ArenaAllocator);
+            arena.* = std.heap.ArenaAllocator.init(allocator);
+            var ret = try Self.initWithArena(arena, start, initial_verts, context);
+            ret.arena_owned = true;
+            return ret;
+        }
+
         pub fn deinit(self: *Self) void {
-            for (self.verts.values()) |*dv| {
-                dv.deinit();
-            }
             self.verts.unlockPointers();
-            self.verts.deinit();
+            if (self.arena_owned) {
+                self.arena.deinit();
+                self.arena.child_allocator.destroy(self.arena);
+            }
         }
 
         /// Resets the state so another call to findPaths can run correctly
@@ -88,12 +99,8 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
         }
 
         pub fn removeVertex(self: *Self, v: VData) bool {
-            var removed = false;
             self.verts.unlockPointers();
-            if (self.verts.fetchSwapRemove(v)) |entry| {
-                entry.value.deinit();
-                removed = true;
-            }
+            const removed = self.verts.fetchSwapRemove(v) != null;
             self.verts.lockPointers();
             return removed;
         }
@@ -111,25 +118,25 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
                 v: *const Vertex,
             ) std.mem.Allocator.Error!void,
         ) !void {
+            const allocator = self.arena.allocator();
             var queue = std.PriorityQueue(
                 *Vertex,
                 void,
                 Vertex.compare,
-            ).init(self.allocator, {});
-            defer queue.deinit();
+            ).init(allocator, {});
             try queue.add(self.verts.getPtr(self.start).?);
 
-            var visited = try self.allocator.alloc(bool, self.verts.capacity());
-            defer self.allocator.free(visited);
+            var visited = try allocator.alloc(bool, self.verts.capacity());
+            defer allocator.free(visited);
 
             while (queue.removeOrNull()) |u| {
                 visited[self.verts.getIndex(u.v).?] = true;
                 if (print) |p| {
-                    try p(self.allocator, self, u);
+                    try p(allocator, self, u);
                 }
 
-                const edges = try getAdjacent(self.allocator, u.v, self.context);
-                defer self.allocator.free(edges);
+                const edges = try getAdjacent(allocator, u.v, self.context);
+                defer allocator.free(edges);
                 for (edges) |n| {
                     const dv_i = self.verts.getIndex(n.v).?;
                     if (visited[dv_i]) {
@@ -159,12 +166,13 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             seen: ?std.AutoHashMap(VData, void),
 
             fn init(dj: *const Self, start: VData, unique: bool) !PathIterator {
-                var q = try std.ArrayList(*const Vertex).initCapacity(dj.allocator, 1);
+                const allocator = dj.arena.allocator();
+                var q = try std.ArrayList(*const Vertex).initCapacity(allocator, 1);
                 q.appendAssumeCapacity(dj.verts.getPtr(start).?);
                 return .{
                     .dj = dj,
                     .queue = q,
-                    .seen = if (!unique) null else std.AutoHashMap(VData, void).init(dj.allocator),
+                    .seen = if (!unique) null else std.AutoHashMap(VData, void).init(allocator),
                 };
             }
 

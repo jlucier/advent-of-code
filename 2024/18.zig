@@ -59,7 +59,18 @@ fn readFallingBytes(grid: *Grid, lines: []const []const u8) !void {
     }
 }
 
-fn onPath(allocator: std.mem.Allocator, dj: *const DijkSolver, end: V2u, bad: V2u) !bool {
+fn onPath(dj: *const DijkSolver, end: V2u, bad: V2u) !bool {
+    var iter = try dj.pathIterator(end, true);
+    defer iter.deinit();
+    while (try iter.next()) |v| {
+        if (v.equal(bad)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+fn onPathOld(allocator: std.mem.Allocator, dj: *const DijkSolver, end: V2u, bad: V2u) !bool {
     var queue = std.ArrayList(V2u).init(allocator);
     defer queue.deinit();
     var seen = std.AutoHashMap(V2u, void).init(allocator);
@@ -90,13 +101,16 @@ const Ans = struct {
 };
 
 fn parts(
-    allocator: std.mem.Allocator,
+    child: std.mem.Allocator,
     grid_size: usize,
     lines: []const []const u8,
     run_n: usize,
 ) !Ans {
+    var arena = std.heap.ArenaAllocator.init(child);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
     var grid = try Grid.init(allocator, grid_size, grid_size);
-    defer grid.deinit();
 
     // initialize grid and run first n bytes
     grid.fill('.');
@@ -106,9 +120,8 @@ fn parts(
     const start = V2u{};
     const end = V2u{ .x = @intCast(grid.ncols - 1), .y = @intCast(grid.nrows - 1) };
     const initial_verts = try makeVerts(allocator, &grid);
-    defer allocator.free(initial_verts);
-    var dj = try DijkSolver.init(allocator, start, initial_verts, .{ .grid = &grid });
-    defer dj.deinit();
+
+    var dj = try DijkSolver.initWithArena(&arena, start, initial_verts, .{ .grid = &grid });
 
     // solve p1
     try dj.findPaths(getNeighbors);
@@ -122,7 +135,8 @@ fn parts(
         try readFallingBytes(&grid, lines[i .. i + 1]);
 
         const loc = try parseV2(lines[i]);
-        const op = try onPath(allocator, &dj, end, loc);
+        // const op = try onPathOld(allocator, &dj, end, loc);
+        const op = try onPath(&dj, end, loc);
 
         if (op) {
             // remove the vertex that just got murked
@@ -181,11 +195,10 @@ test "ex" {
 }
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const allocator = arena.allocator();
-    const lines = try zutils.readLines(allocator, "~/sync/dev/aoc_inputs/2024/18.txt");
+    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/18.txt");
+    defer lines.deinit();
 
-    const ans = try parts(allocator, 71, lines.strings.items, 1024);
+    const ans = try parts(std.heap.page_allocator, 71, lines.strings.items, 1024);
 
     std.debug.print("p1: {d}\n", .{ans.p1});
     std.debug.print("p2: {s}\n", .{ans.p2});

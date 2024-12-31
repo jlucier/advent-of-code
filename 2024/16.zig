@@ -106,24 +106,25 @@ fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
     return verts.toOwnedSlice();
 }
 
-fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
+fn parts(child: std.mem.Allocator, lines: Lines) ![2]usize {
+    var arena = std.heap.ArenaAllocator.init(child);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+
     const grid = try Grid.init2DSlice(allocator, lines);
-    defer grid.deinit();
 
     const res = findStartEnd(&grid);
     const start = res[0];
     const end = res[1];
 
     const initial_verts = try makeVerts(allocator, &grid);
-    defer allocator.free(initial_verts);
 
-    var dj = try DijkSolver.init(
-        allocator,
+    var dj = try DijkSolver.initWithArena(
+        &arena,
         .{ .pos = start, .dir = .{ .x = 1 } },
         initial_verts,
         .{ .grid = &grid },
     );
-    defer dj.deinit();
     try dj.findPaths(getNeighbors);
 
     var best: ?*const DijkSolver.Vertex = null;
@@ -136,9 +137,7 @@ fn parts(allocator: std.mem.Allocator, lines: Lines) ![2]usize {
     }
 
     var best_cells = std.AutoHashMap(V2i, void).init(allocator);
-    defer best_cells.deinit();
-    var iter = try dj.pathIterator(best.?.v);
-    defer iter.deinit();
+    var iter = try dj.pathIterator(best.?.v, false);
 
     while (try iter.next()) |v| {
         try best_cells.put(v.pos, {});
@@ -198,11 +197,10 @@ test "example2" {
 }
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const alloc = arena.allocator();
-    const lines = try zutils.readLines(alloc, "~/sync/dev/aoc_inputs/2024/16.txt");
+    const lines = try zutils.readLines(std.heap.page_allocator, "~/sync/dev/aoc_inputs/2024/16.txt");
+    defer lines.deinit();
 
-    const ans = try parts(alloc, lines.strings.items);
+    const ans = try parts(std.heap.page_allocator, lines.strings.items);
     std.debug.print("p1: {d}\n", .{ans[0]});
     std.debug.print("p2: {d}\n", .{ans[1]});
 }
