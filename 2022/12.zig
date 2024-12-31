@@ -32,7 +32,11 @@ fn findShortestPath(allocator: std.mem.Allocator, lines: []const []const u8) !us
                 for (ln, 0..) |c, i| {
                     const tmp = V2{ .x = @intCast(i), .y = @intCast(j) };
                     if (visited.getKey(tmp) != null) {
-                        std.debug.print("{s}{c}{s}", .{ zutils.ANSI_RED, c, zutils.ANSI_RESET });
+                        std.debug.print("{s}{c}{s}", .{
+                            zutils.fmt.ANSI_RED,
+                            c,
+                            zutils.fmt.ANSI_RESET,
+                        });
                     } else {
                         std.debug.print("{c}", .{c});
                     }
