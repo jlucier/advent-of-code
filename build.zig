@@ -23,6 +23,8 @@ pub fn build(b: *std.Build) !void {
     const cwd = std.fs.cwd();
     for (YEAR_DIRS) |y| {
         const year = try cwd.openDir(y, .{ .iterate = true });
+        const run_year_step = b.step(b.fmt("run_{s}", .{y}), b.fmt("Run all in {s}", .{y}));
+
         var iter = year.iterate();
         while (try iter.next()) |ent| {
             switch (ent.kind) {
@@ -48,6 +50,7 @@ pub fn build(b: *std.Build) !void {
                     const run_day = b.addRunArtifact(day_exe);
                     const run_step = b.step(b.fmt("run_{s}", .{exename}), b.fmt("Run {s}", .{exename}));
                     run_step.dependOn(&run_day.step);
+                    run_year_step.dependOn(&run_day.step);
 
                     // add day test
                     const day_test = b.addTest(.{ .root_source_file = b.path(zigfile) });
