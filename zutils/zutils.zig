@@ -14,40 +14,31 @@ pub const V2i = vec.V2i;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
 pub const StringList = struct {
-    // owned: bool = false,
-    // arena: *std.heap.ArenaAllocator,
+    owned: bool = false,
+    arena: *std.heap.ArenaAllocator,
     list: std.ArrayList([]u8),
 
-    // pub fn initWithArena(arena: *ArenaAllocator) StringList {
-    //     return .{
-    //         .owned = false,
-    //         .arena = arena,
-    //         .list = std.ArrayList([]u8).init(arena.allocator()),
-    //     };
-    // }
-    //
-    // pub fn init(allocator: std.mem.Allocator) !StringList {
-    //     const arena = try allocator.create(ArenaAllocator);
-    //     arena.* = ArenaAllocator.init(allocator);
-    //     var ret = StringList.initWithArena(arena);
-    //     ret.owned = true;
-    //     return ret;
-    // }
-
-    pub fn init(allocator: std.mem.Allocator) StringList {
+    pub fn initWithArena(arena: *ArenaAllocator) StringList {
         return .{
-            .list = std.ArrayList([]u8).init(allocator),
+            .owned = false,
+            .arena = arena,
+            .list = std.ArrayList([]u8).init(arena.allocator()),
         };
     }
+
+    pub fn init(allocator: std.mem.Allocator) !StringList {
+        const arena = try allocator.create(ArenaAllocator);
+        arena.* = ArenaAllocator.init(allocator);
+        var ret = StringList.initWithArena(arena);
+        ret.owned = true;
+        return ret;
+    }
+
     pub fn deinit(self: *const StringList) void {
-        for (self.items()) |s| {
-            self.list.allocator.free(s);
+        if (self.owned) {
+            self.arena.deinit();
+            self.arena.child_allocator.destroy(self.arena);
         }
-        self.list.deinit();
-        // if (self.owned) {
-        //     self.arena.deinit();
-        //     self.arena.child_allocator.destroy(self.arena);
-        // }
     }
 
     pub fn size(self: *const StringList) usize {

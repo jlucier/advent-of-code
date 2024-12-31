@@ -50,7 +50,7 @@ test "stuff" {
 }
 
 pub fn main() void {
-    const file = zutils.openFile(
+    const file = zutils.fs.openFile(
         std.heap.page_allocator,
         "~/sync/dev/aoc_inputs/2022/6.txt",
         .{ .mode = .read_only },

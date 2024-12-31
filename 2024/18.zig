@@ -175,7 +175,7 @@ pub fn main() !void {
     // so that none of the further operations cause it to grow. Fun.
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const lines = try zutils.fs.readLines(arena.allocator(), "~/sync/dev/aoc_inputs/2024/18.txt");
+    const lines = try zutils.fs.readLinesArena(&arena, "~/sync/dev/aoc_inputs/2024/18.txt");
 
     const ans = try parts(&arena, 71, lines.items(), 1024);
 

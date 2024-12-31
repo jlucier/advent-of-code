@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) !void {
                     run_year_step.dependOn(&run_day.step);
 
                     // add day test
-                    const day_test = b.addTest(.{ .root_source_file = b.path(zigfile) });
+                    const day_test = b.addTest(.{ .name = exename, .root_source_file = b.path(zigfile) });
                     day_test.root_module.addImport("zutils", zutils);
 
                     const run_test = b.addRunArtifact(day_test);
