@@ -30,12 +30,40 @@ const DV = struct {
     dir: V2i,
 };
 
-const DijkCtx = struct {
+const DijkSolver = zutils.graph.Dijkstras(DV, struct {
     grid: *const Grid,
-};
 
-const DijkSolver = zutils.graph.Dijkstras(DV, DijkCtx);
-const Edge = DijkSolver.Edge;
+    const Edge = struct {
+        v: DV,
+        cost: usize,
+    };
+
+    pub fn getAdjacent(ctx: @This(), allocator: std.mem.Allocator, dv: DV) ![]Edge {
+        const grid = ctx.grid;
+        var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
+        var niter = dv.pos.iterNeighborsInGridBounds(grid.ncols, grid.nrows);
+        while (niter.next()) |n| {
+            const next_dir = n.sub(dv.pos);
+            // skip if turning around
+            if (next_dir.add(dv.dir).equal(V2i{}) or
+                // skip if wall
+                grid.atV(n.asType(usize)) == '#')
+            {
+                continue;
+            }
+            var move_cost: usize = 1;
+            if (!next_dir.equal(dv.dir)) {
+                move_cost += 1000;
+            }
+
+            edges.appendAssumeCapacity(.{
+                .v = .{ .pos = n, .dir = next_dir },
+                .cost = move_cost,
+            });
+        }
+        return try edges.toOwnedSlice();
+    }
+});
 
 fn printCurr(
     allocator: std.mem.Allocator,
@@ -62,32 +90,6 @@ fn printCurr(
     std.debug.print("eval: {} {} {any}\n", .{ v.d, v.v, v.pred.items });
     grid.printHl(hl.items);
     std.debug.print("\n", .{});
-}
-
-fn getNeighbors(allocator: std.mem.Allocator, dv: DV, ctx: DijkCtx) ![]Edge {
-    const grid = ctx.grid;
-    var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
-    var niter = dv.pos.iterNeighborsInGridBounds(grid.ncols, grid.nrows);
-    while (niter.next()) |n| {
-        const next_dir = n.sub(dv.pos);
-        // skip if turning around
-        if (next_dir.add(dv.dir).equal(V2i{}) or
-            // skip if wall
-            grid.atV(n.asType(usize)) == '#')
-        {
-            continue;
-        }
-        var move_cost: usize = 1;
-        if (!next_dir.equal(dv.dir)) {
-            move_cost += 1000;
-        }
-
-        edges.appendAssumeCapacity(.{
-            .v = .{ .pos = n, .dir = next_dir },
-            .cost = move_cost,
-        });
-    }
-    return try edges.toOwnedSlice();
 }
 
 fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
@@ -122,7 +124,7 @@ fn parts(arena: *std.heap.ArenaAllocator, lines: Lines) ![2]usize {
         initial_verts,
         .{ .grid = &grid },
     );
-    try dj.findPaths(getNeighbors);
+    try dj.findPaths();
 
     var best: ?*const DijkSolver.Vertex = null;
     for (dj.verts.values()) |*dv| {

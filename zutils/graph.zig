@@ -1,6 +1,13 @@
 const std = @import("std");
+const grid = @import("grid.zig");
+const vec = @import("vec.zig");
+
+const ArenaAllocator = std.heap.ArenaAllocator;
+const Allocator = std.mem.Allocator;
 
 /// Create a dijkstras solver given a type for the node and function
+/// Context at least has method:
+/// fn getAdjacent(ctx: Context, allocator: Allocator, dv: VData) ![]{ v: VData, cost: usize }
 pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
     return struct {
         const PredList = std.ArrayList(VData);
@@ -20,27 +27,16 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             }
         };
 
-        pub const Edge = struct {
-            cost: usize,
-            v: VData,
-        };
-
-        const AdjFn = fn (
-            allcator: std.mem.Allocator,
-            v: VData,
-            ctx: Context,
-        ) std.mem.Allocator.Error![]Edge;
-
         const Self = @This();
 
         arena_owned: bool = false,
-        arena: *std.heap.ArenaAllocator,
+        arena: *ArenaAllocator,
         start: VData,
         verts: std.AutoArrayHashMap(VData, Vertex),
         context: Context,
 
         pub fn initWithArena(
-            arena: *std.heap.ArenaAllocator,
+            arena: *ArenaAllocator,
             start: VData,
             initial_verts: []VData,
             context: Context,
@@ -69,13 +65,13 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
         }
 
         pub fn init(
-            allocator: std.mem.Allocator,
+            allocator: Allocator,
             start: VData,
             initial_verts: []VData,
             context: Context,
         ) !Self {
-            const arena = try allocator.create(std.heap.ArenaAllocator);
-            arena.* = std.heap.ArenaAllocator.init(allocator);
+            const arena = try allocator.create(ArenaAllocator);
+            arena.* = ArenaAllocator.init(allocator);
             var ret = try Self.initWithArena(arena, start, initial_verts, context);
             ret.arena_owned = true;
             return ret;
@@ -105,18 +101,17 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             return removed;
         }
 
-        pub fn findPaths(self: *Self, getAdjacent: AdjFn) !void {
-            return self.findPathsPrint(getAdjacent, null);
+        pub fn findPaths(self: *Self) !void {
+            return self.findPathsPrint(null);
         }
 
         pub fn findPathsPrint(
             self: *Self,
-            getAdjacent: AdjFn,
             print: ?fn (
-                allocator: std.mem.Allocator,
+                allocator: Allocator,
                 dj: *const Self,
                 v: *const Vertex,
-            ) std.mem.Allocator.Error!void,
+            ) Allocator.Error!void,
         ) !void {
             const allocator = self.arena.allocator();
             var queue = std.PriorityQueue(
@@ -135,7 +130,7 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
                     try p(allocator, self, u);
                 }
 
-                const edges = try getAdjacent(allocator, u.v, self.context);
+                const edges = try self.context.getAdjacent(allocator, u.v);
                 defer allocator.free(edges);
                 for (edges) |n| {
                     const dv_i = self.verts.getIndex(n.v).?;
@@ -204,6 +199,102 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
         /// only the unique ones
         pub fn pathIterator(self: *const Self, v: VData, unique: bool) !PathIterator {
             return try PathIterator.init(self, v, unique);
+        }
+    };
+}
+
+/// Common util for solving grid based dijkstras with basic cost functions.
+///
+/// V2 is the vector type to use.
+///
+/// blocked_cell is the value in the grid representing a blocked cell, the grid
+/// will be inferred to hold the type of the blocked_cell
+///
+/// Context can be anything, but must contain at least a function:
+/// fn cost(ctx: @TypeOf(context), a: V2, b: V2) usize
+/// which returns the cost of moving from a neighbor b
+pub fn GridDijkstras(
+    comptime V2: type,
+    comptime Cell: type,
+    comptime blocked_cell: Cell,
+    comptime Context: type,
+) type {
+    return struct {
+        pub const Grid = grid.Grid(Cell);
+        pub const DijkCtx = struct {
+            grid: *const Grid,
+            sub_ctx: Context,
+
+            const Edge = struct {
+                v: V2,
+                cost: usize,
+            };
+
+            pub fn getAdjacent(
+                ctx: DijkCtx,
+                allocator: Allocator,
+                dv: V2,
+            ) ![]Edge {
+                var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
+                const g = ctx.grid;
+                var iter = dv.iterNeighborsInGridBounds(g.ncols, g.nrows);
+
+                while (iter.next()) |n| {
+                    if (g.atV(n.asType(usize)) == blocked_cell) {
+                        continue;
+                    }
+                    edges.appendAssumeCapacity(.{
+                        .v = n,
+                        .cost = ctx.sub_ctx.cost(dv, n),
+                    });
+                }
+
+                return edges.toOwnedSlice();
+            }
+        };
+
+        pub const DijkSolver = Dijkstras(V2, DijkCtx);
+
+        fn makeVerts(allocator: Allocator, g: *const Grid) ![]V2 {
+            var verts = std.ArrayList(V2).init(allocator);
+
+            var iter = g.iterator();
+            while (iter.next()) |v| {
+                if (g.atV(v) != blocked_cell) {
+                    try verts.append(v.asType(u8));
+                }
+            }
+            return verts.toOwnedSlice();
+        }
+
+        pub fn initSolverWithArena(
+            arena: *ArenaAllocator,
+            start: V2,
+            g: *const Grid,
+            ctx: Context,
+        ) !DijkSolver {
+            const initial_verts = try makeVerts(arena.allocator(), g);
+            return try DijkSolver.initWithArena(
+                arena,
+                start,
+                initial_verts,
+                .{ .grid = g, .sub_ctx = ctx },
+            );
+        }
+
+        pub fn initSolver(
+            allocator: Allocator,
+            start: V2,
+            g: *const Grid,
+            ctx: Context,
+        ) !DijkSolver {
+            const initial_verts = try makeVerts(allocator, g);
+            return try DijkSolver.init(
+                allocator,
+                start,
+                initial_verts,
+                .{ .grid = g, .sub_ctx = ctx },
+            );
         }
     };
 }

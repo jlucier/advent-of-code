@@ -1,49 +1,16 @@
 const std = @import("std");
 const zutils = @import("zutils");
 
-const Grid = zutils.Grid(u8);
 const V2u = zutils.V2(u8);
 
-const DijkCtx = struct {
-    grid: *const Grid,
-};
-
-const DijkSolver = zutils.graph.Dijkstras(V2u, DijkCtx);
-const Edge = DijkSolver.Edge;
-
-fn getNeighbors(
-    allocator: std.mem.Allocator,
-    dv: V2u,
-    ctx: DijkCtx,
-) ![]Edge {
-    var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
-    const grid = ctx.grid;
-    var iter = dv.iterNeighborsInGridBounds(grid.ncols, grid.nrows);
-
-    while (iter.next()) |n| {
-        if (grid.atV(n.asType(usize)) == '#') {
-            continue;
-        }
-        edges.appendAssumeCapacity(.{
-            .v = n,
-            .cost = 1,
-        });
+const Dijkstras = zutils.graph.GridDijkstras(V2u, u8, '#', struct {
+    pub fn cost(_: @This(), _: V2u, _: V2u) usize {
+        return 1;
     }
+});
 
-    return edges.toOwnedSlice();
-}
-
-fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]V2u {
-    var verts = std.ArrayList(V2u).init(allocator);
-
-    var iter = grid.iterator();
-    while (iter.next()) |v| {
-        if (grid.atV(v) != '#') {
-            try verts.append(v.asType(u8));
-        }
-    }
-    return verts.toOwnedSlice();
-}
+const DijkSolver = Dijkstras.DijkSolver;
+const Grid = Dijkstras.Grid;
 
 fn parseV2(ln: []const u8) !V2u {
     const c_idx = std.mem.indexOfScalar(u8, ln, ',').?;
@@ -92,12 +59,11 @@ fn parts(
     // set up the solver
     const start = V2u{};
     const end = V2u{ .x = @intCast(grid.ncols - 1), .y = @intCast(grid.nrows - 1) };
-    const initial_verts = try makeVerts(allocator, &grid);
 
-    var dj = try DijkSolver.initWithArena(arena, start, initial_verts, .{ .grid = &grid });
+    var dj = try Dijkstras.initSolverWithArena(arena, start, &grid, .{});
 
     // solve p1
-    try dj.findPaths(getNeighbors);
+    try dj.findPaths();
     const p1 = dj.verts.getPtr(end).?.d;
 
     // solve p2
@@ -116,7 +82,7 @@ fn parts(
             dj.reset();
 
             // re-solve, finished when path can't be found
-            try dj.findPaths(getNeighbors);
+            try dj.findPaths();
             const cost = dj.verts.getPtr(end).?.d;
             if (cost == std.math.maxInt(usize)) {
                 p2 = lines[i];
