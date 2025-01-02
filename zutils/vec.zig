@@ -4,12 +4,29 @@ const zutils = @import("zutils.zig");
 pub const V2i = V2(isize);
 pub const V2u = V2(usize);
 
+fn toSigned(comptime T: type) type {
+    const tinfo = @typeInfo(T);
+    return switch (tinfo) {
+        .Int => {
+            if (tinfo.Int.signedness == .signed) {
+                return T;
+            }
+            var signed = tinfo;
+            signed.Int.signedness = .signed;
+            return @Type(signed);
+        },
+        .Float => T,
+        else => @compileError("V2 type needs to be numeric"),
+    };
+}
+
 pub fn V2(comptime T: type) type {
     return struct {
         x: T = 0,
         y: T = 0,
 
         pub const ValueT = T;
+        const SignedT = toSigned(T);
         const Self = @This();
 
         pub fn clone(self: *const Self) Self {
@@ -108,6 +125,10 @@ pub fn V2(comptime T: type) type {
                 .x = -self.y,
                 .y = self.x,
             };
+        }
+
+        pub fn asSigned(self: *const Self) V2(SignedT) {
+            return self.asType(SignedT);
         }
 
         pub fn asType(self: *const Self, comptime OT: type) V2(OT) {

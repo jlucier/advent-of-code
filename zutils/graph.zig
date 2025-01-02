@@ -94,6 +94,15 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             self.verts.getPtr(self.start).?.d = 0;
         }
 
+        pub fn addVertex(self: *Self, v: VData) !void {
+            self.verts.unlockPointers();
+            try self.verts.put(v, .{
+                .v = v,
+                .pred = PredList.init(self.arena.allocator()),
+            });
+            self.verts.lockPointers();
+        }
+
         pub fn removeVertex(self: *Self, v: VData) bool {
             self.verts.unlockPointers();
             const removed = self.verts.fetchSwapRemove(v) != null;
@@ -203,6 +212,15 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
     };
 }
 
+/// Commonly used manhattan distance cost for dijkstras
+pub fn ManhattanCostCtx(comptime V2: type) type {
+    return struct {
+        pub fn cost(_: @This(), a: V2, b: V2) usize {
+            return @intCast(a.asSigned().sub(b.asSigned()).manhattanMag());
+        }
+    };
+}
+
 /// Common util for solving grid based dijkstras with basic cost functions.
 ///
 /// V2 is the vector type to use.
@@ -261,7 +279,7 @@ pub fn GridDijkstras(
             var iter = g.iterator();
             while (iter.next()) |v| {
                 if (g.atV(v) != blocked_cell) {
-                    try verts.append(v.asType(u8));
+                    try verts.append(v.asType(V2.ValueT));
                 }
             }
             return verts.toOwnedSlice();

@@ -3,11 +3,7 @@ const zutils = @import("zutils");
 
 const V2u = zutils.V2(u8);
 
-const Dijkstras = zutils.graph.GridDijkstras(V2u, u8, '#', struct {
-    pub fn cost(_: @This(), _: V2u, _: V2u) usize {
-        return 1;
-    }
-});
+const Dijkstras = zutils.graph.GridDijkstras(V2u, u8, '#', zutils.graph.ManhattanCostCtx(V2u));
 
 const DijkSolver = Dijkstras.DijkSolver;
 const Grid = Dijkstras.Grid;
