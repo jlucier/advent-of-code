@@ -26,16 +26,21 @@ fn readLinesInner(
 ) !void {
     const file = try openFile(allocator, pathname, .{ .mode = .read_only });
     defer file.close();
-    const reader = file.reader();
+    var buf: [4096]u8 = undefined;
+    var freader = file.reader(&buf);
+    var reader = &freader.interface;
 
-    while (true) {
-        const ln = try reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 1_000_000);
-
-        if (ln) |l| {
-            try list.append(l);
-        } else {
-            break;
-        }
+    while (reader.takeDelimiterInclusive('\n')) |ln| {
+        try list.append(ln[0 .. ln.len - 1]);
+    } else |err| switch (err) {
+        error.EndOfStream => {
+            if (reader.buffer.len >= 0) {
+                try list.append(reader.buffer);
+            }
+        }, // stream ended not on a line break
+        error.StreamTooLong, // line could not fit in buffer
+        error.ReadFailed, // caller can check reader implementation for diagnostics
+        => |e| return e,
     }
 }
 

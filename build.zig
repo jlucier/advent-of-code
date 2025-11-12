@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = b.path("zutils/zutils.zig"),
         .target = target,
     });
-    const zutils_test = b.addTest(.{ .root_source_file = b.path("zutils/zutils.zig") });
+    const zutils_test = b.addTest(.{ .root_module = zutils });
     const run_ztest = b.addRunArtifact(zutils_test);
     const ztest_step = b.step("test_zutils", "Run zutils tests");
     ztest_step.dependOn(&run_ztest.step);
@@ -36,12 +36,16 @@ pub fn build(b: *std.Build) !void {
                     // remove .zig
                     const exename = b.fmt("{s}_{s}", .{ y, ent.name[0 .. ent.name.len - 4] });
 
-                    // add day exe
-                    const day_exe = b.addExecutable(.{
-                        .name = exename,
+                    const day_mod = b.addModule(exename, .{
                         .root_source_file = b.path(zigfile),
                         .target = target,
                         .optimize = optimize,
+                    });
+
+                    // add day exe
+                    const day_exe = b.addExecutable(.{
+                        .name = exename,
+                        .root_module = day_mod,
                     });
                     day_exe.root_module.addImport("zutils", zutils);
                     b.installArtifact(day_exe);
@@ -53,7 +57,7 @@ pub fn build(b: *std.Build) !void {
                     run_year_step.dependOn(&run_day.step);
 
                     // add day test
-                    const day_test = b.addTest(.{ .name = exename, .root_source_file = b.path(zigfile) });
+                    const day_test = b.addTest(.{ .name = exename, .root_module = day_mod });
                     day_test.root_module.addImport("zutils", zutils);
 
                     const run_test = b.addRunArtifact(day_test);
