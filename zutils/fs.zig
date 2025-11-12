@@ -31,13 +31,10 @@ fn readLinesInner(
     var reader = &freader.interface;
 
     while (reader.takeDelimiterInclusive('\n')) |ln| {
-        try list.append(ln[0 .. ln.len - 1]);
+        const cp = try list.arena.allocator().dupe(u8, ln[0 .. ln.len - 1]);
+        try list.append(cp);
     } else |err| switch (err) {
-        error.EndOfStream => {
-            if (reader.buffer.len >= 0) {
-                try list.append(reader.buffer);
-            }
-        }, // stream ended not on a line break
+        error.EndOfStream => return, // stream ended not on a line break
         error.StreamTooLong, // line could not fit in buffer
         error.ReadFailed, // caller can check reader implementation for diagnostics
         => |e| return e,

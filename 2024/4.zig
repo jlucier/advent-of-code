@@ -30,12 +30,12 @@ const MatchState = struct {
 
 const SearchState = struct {
     g: Grid,
-    matches: std.ArrayList(usize),
+    matches: std.array_list.Managed(usize),
     seq: []const u8,
 
     fn init(allocator: std.mem.Allocator, lines: []const []const u8, seq: []const u8) !SearchState {
         return .{
-            .matches = std.ArrayList(usize).init(allocator),
+            .matches = std.array_list.Managed(usize).init(allocator),
             .g = try Grid.init2DSlice(allocator, lines),
             .seq = seq,
         };
