@@ -65,8 +65,8 @@ const Cpu = struct {
         return val;
     }
 
-    fn run(self: *Cpu, allocator: std.mem.Allocator) !std.ArrayList(usize) {
-        var out = std.ArrayList(usize).init(allocator);
+    fn run(self: *Cpu, allocator: std.mem.Allocator) !std.array_list.Managed(usize) {
+        var out = std.array_list.Managed(usize).init(allocator);
         var ip: usize = 0;
         const og = self.*;
         while (ip < self.program.len - 1) {
@@ -109,12 +109,12 @@ fn parseLines(allocator: std.mem.Allocator, lines: []const []const u8) !Cpu {
     return cpu;
 }
 
-fn formatOutput(allocator: std.mem.Allocator, out: *const std.ArrayList(usize)) ![]const u8 {
+fn formatOutput(allocator: std.mem.Allocator, out: *const std.array_list.Managed(usize)) ![]const u8 {
     const nout = out.items.len;
     const buf = try allocator.alloc(u8, if (nout > 0) nout * 2 - 1 else 0);
     for (out.items, 0..) |n, i| {
         const idx = 2 * i;
-        _ = std.fmt.bufPrintIntToSlice(buf[idx..], n, 10, .lower, .{});
+        _ = try std.fmt.bufPrint(buf[idx..], "{d}", .{n});
         if (i + 1 < out.items.len) {
             _ = try std.fmt.bufPrint(buf[idx + 1 ..], "{c}", .{','});
         }
@@ -173,7 +173,7 @@ fn parts(allocator: std.mem.Allocator, lines: []const []const u8) !Ans {
 
     var i: usize = 0;
     var a: usize = 0;
-    var candidates = std.ArrayList(usize).init(allocator);
+    var candidates = std.array_list.Managed(usize).init(allocator);
     defer candidates.deinit();
     try candidates.append(0);
 

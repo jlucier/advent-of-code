@@ -82,7 +82,7 @@ const State = struct {
         var to_move = std.AutoArrayHashMap(V2, void).init(self.allocator);
         defer to_move.deinit();
         try to_move.put(self.bot, {});
-        var look_ahead = try std.ArrayList(V2).initCapacity(self.allocator, 1);
+        var look_ahead = try std.array_list.Managed(V2).initCapacity(self.allocator, 1);
         defer look_ahead.deinit();
         look_ahead.appendAssumeCapacity(start);
 

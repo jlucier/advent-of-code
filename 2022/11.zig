@@ -6,7 +6,7 @@ const OpType = enum {
     add,
 };
 
-const MonkeyList = std.ArrayList(Monkey);
+const MonkeyList = std.array_list.Managed(Monkey);
 
 const Monkey = struct {
     op_type: OpType = .mul,
@@ -15,7 +15,7 @@ const Monkey = struct {
     true_out: usize = 0,
     false_out: usize = 0,
     n_inspections: usize = 0,
-    items: std.ArrayList(usize),
+    items: std.array_list.Managed(usize),
 
     pub fn deinit(self: *Monkey) void {
         self.items.deinit();
@@ -23,7 +23,7 @@ const Monkey = struct {
 
     pub fn initFromLines(allocator: std.mem.Allocator, lines: []const []const u8) !Monkey {
         var monkey = Monkey{
-            .items = std.ArrayList(usize).init(allocator),
+            .items = std.array_list.Managed(usize).init(allocator),
         };
 
         // items

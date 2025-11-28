@@ -41,7 +41,7 @@ fn readLinesInner(
     }
 }
 
-/// Read lines of a file. ArrayList and strings inside are owned by caller
+/// Read lines of a file. array_list.Managed and strings inside are owned by caller
 pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !zutils.StringList {
     var ll = try zutils.StringList.init(allocator);
     try readLinesInner(ll.arena.allocator(), &ll, pathname);

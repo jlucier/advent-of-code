@@ -10,7 +10,7 @@ pub fn main() void {
     defer ll.deinit();
 
     var curr: u32 = 0;
-    var totals = std.ArrayList(u32).init(allocator);
+    var totals = std.array_list.Managed(u32).init(allocator);
 
     for (ll.items()) |ln| {
         if (ln.len == 0) {

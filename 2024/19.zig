@@ -8,7 +8,7 @@ const ProblemState = struct {
 
 const Node = struct {
     pattern: []const u8,
-    used: std.ArrayList([]const u8),
+    used: std.array_list.Managed([]const u8),
 
     fn deinit(self: *const Node) void {
         self.used.deinit();
@@ -56,7 +56,7 @@ fn nfa(allocator: std.mem.Allocator, pstate: *const ProblemState, pattern: []con
 
     // NOTE: because we re-sort the list of states each iteration from smallest length to largest,
     // this will pop the largest states first since they are at the end
-    while (states.popOrNull()) |ent| : (iters += 1) {
+    while (states.pop()) |ent| : (iters += 1) {
         const remaining_ptrn = ent.key;
         const n = ent.value;
 

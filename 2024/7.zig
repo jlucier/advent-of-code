@@ -16,11 +16,11 @@ fn parseLine(allocator: std.mem.Allocator, ln: []const u8) ![]usize {
 }
 
 fn solveBackwards(allocator: std.mem.Allocator, eq: []const usize, nops: usize) !?usize {
-    var stack = try std.ArrayList([2]usize).initCapacity(allocator, 1);
+    var stack = try std.array_list.Managed([2]usize).initCapacity(allocator, 1);
     defer stack.deinit();
     stack.appendAssumeCapacity(.{ eq[0], eq.len - 1 });
 
-    while (stack.popOrNull()) |node| {
+    while (stack.pop()) |node| {
         const curr = node[0];
         const i = node[1];
         const operand = eq[i];

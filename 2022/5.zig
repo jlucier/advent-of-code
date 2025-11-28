@@ -10,12 +10,12 @@ const Instruction = struct {
 };
 
 const MultiStack = struct {
-    const Stack = std.ArrayList(u8);
-    stacks: std.ArrayList(Stack),
+    const Stack = std.array_list.Managed(u8);
+    stacks: std.array_list.Managed(Stack),
 
     pub fn initCapacity(allocator: std.mem.Allocator, n: usize) !MultiStack {
         var mstack = MultiStack{
-            .stacks = try std.ArrayList(Stack).initCapacity(allocator, n),
+            .stacks = try std.array_list.Managed(Stack).initCapacity(allocator, n),
         };
 
         var i: usize = 0;
@@ -42,7 +42,7 @@ const MultiStack = struct {
     fn move(self: *MultiStack, inst: *const Instruction) !void {
         var i: usize = 0;
         while (i < inst.n) : (i += 1) {
-            const el = self.stacks.items[inst.from].pop();
+            const el = self.stacks.items[inst.from].pop().?;
             try self.stacks.items[inst.to].append(el);
         }
     }

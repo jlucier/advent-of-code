@@ -8,11 +8,11 @@ fn toSigned(comptime T: type) type {
     const tinfo = @typeInfo(T);
     return switch (tinfo) {
         .int => {
-            if (tinfo.Int.signedness == .signed) {
+            if (tinfo.int.signedness == .signed) {
                 return T;
             }
             var signed = tinfo;
-            signed.Int.signedness = .signed;
+            signed.int.signedness = .signed;
             return @Type(signed);
         },
         .float => T,

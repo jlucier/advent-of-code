@@ -38,8 +38,8 @@ fn printRegion(lines: Lines, region: *const Region) void {
     std.debug.print("\n", .{});
 }
 
-fn parseRegions(allocator: std.mem.Allocator, lines: Lines) !std.ArrayList(Region) {
-    var regions = std.ArrayList(Region).init(allocator);
+fn parseRegions(allocator: std.mem.Allocator, lines: Lines) !std.array_list.Managed(Region) {
+    var regions = std.array_list.Managed(Region).init(allocator);
     var seen = std.AutoHashMap(V2, void).init(allocator);
     defer seen.deinit();
     try seen.ensureTotalCapacity(@intCast(lines.len * lines[0].len));
@@ -67,11 +67,11 @@ fn expandRegion(
     start: V2,
     lines: Lines,
 ) !void {
-    var queue = try std.ArrayList(V2).initCapacity(allocator, 1);
+    var queue = try std.array_list.Managed(V2).initCapacity(allocator, 1);
     defer queue.deinit();
     queue.appendAssumeCapacity(start);
 
-    while (queue.popOrNull()) |pos| {
+    while (queue.pop()) |pos| {
         if (lines[@intCast(pos.y)][@intCast(pos.x)] == region.crop) {
             region.area += 1;
         }
@@ -268,7 +268,7 @@ fn findRegionSides(allocator: std.mem.Allocator, region: *const Region, lines: L
     // return sides;
 }
 
-fn p1Total(regions: *const std.ArrayList(Region)) usize {
+fn p1Total(regions: *const std.array_list.Managed(Region)) usize {
     var tot: usize = 0;
     for (regions.items) |r| {
         tot += r.p1Price();
@@ -279,7 +279,7 @@ fn p1Total(regions: *const std.ArrayList(Region)) usize {
 fn p2Total(
     allocator: std.mem.Allocator,
     lines: Lines,
-    regions: *const std.ArrayList(Region),
+    regions: *const std.array_list.Managed(Region),
 ) !usize {
     var tot: usize = 0;
     for (regions.items[2..]) |*r| {
