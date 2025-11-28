@@ -40,7 +40,7 @@ const DijkSolver = zutils.graph.Dijkstras(DV, struct {
 
     pub fn getAdjacent(ctx: @This(), allocator: std.mem.Allocator, dv: DV) ![]Edge {
         const grid = ctx.grid;
-        var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
+        var edges = try std.array_list.Managed(Edge).initCapacity(allocator, 4);
         var niter = dv.pos.iterNeighborsInGridBounds(grid.ncols, grid.nrows);
         while (niter.next()) |n| {
             const next_dir = n.sub(dv.pos);
@@ -72,11 +72,11 @@ fn printCurr(
 ) !void {
     const grid = dj.context.grid;
 
-    var hl = std.ArrayList(zutils.V2u).init(allocator);
+    var hl = std.array_list.Managed(zutils.V2u).init(allocator);
     defer hl.deinit();
     try hl.append(v.v.pos.asType(usize));
 
-    var queue = std.ArrayList(*const DijkSolver.Vertex).init(allocator);
+    var queue = std.array_list.Managed(*const DijkSolver.Vertex).init(allocator);
     defer queue.deinit();
     try queue.append(v);
 
@@ -93,7 +93,7 @@ fn printCurr(
 }
 
 fn makeVerts(allocator: std.mem.Allocator, grid: *const Grid) ![]DV {
-    var verts = std.ArrayList(DV).init(allocator);
+    var verts = std.array_list.Managed(DV).init(allocator);
 
     var iter = grid.iterator();
     while (iter.next()) |v| {

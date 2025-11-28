@@ -7,15 +7,15 @@ pub const V2u = V2(usize);
 fn toSigned(comptime T: type) type {
     const tinfo = @typeInfo(T);
     return switch (tinfo) {
-        .Int => {
-            if (tinfo.Int.signedness == .signed) {
+        .int => {
+            if (tinfo.int.signedness == .signed) {
                 return T;
             }
             var signed = tinfo;
-            signed.Int.signedness = .signed;
+            signed.int.signedness = .signed;
             return @Type(signed);
         },
-        .Float => T,
+        .float => T,
         else => @compileError("V2 type needs to be numeric"),
     };
 }
@@ -76,8 +76,8 @@ pub fn V2(comptime T: type) type {
         pub fn mag(self: *const Self, comptime FT: type) FT {
             const tmp = self.x * self.x + self.y * self.y;
             const f: FT = switch (@typeInfo(T)) {
-                .Int => @floatFromInt(tmp),
-                .Float => tmp,
+                .int => @floatFromInt(tmp),
+                .float => tmp,
                 else => @compileError("V2 type needs to be numeric"),
             };
             return std.math.sqrt(f);
@@ -87,8 +87,8 @@ pub fn V2(comptime T: type) type {
         pub fn manhattanMag(self: *const Self) T {
             const res = @abs(self.x) + @abs(self.y);
             return switch (@typeInfo(T)) {
-                .Int => @intCast(res),
-                .Float => @floatCast(res),
+                .int => @intCast(res),
+                .float => @floatCast(res),
                 else => @compileError("V2 type needs to be numeric"),
             };
         }
@@ -96,13 +96,13 @@ pub fn V2(comptime T: type) type {
         pub fn unit(self: *const Self, comptime FT: type) V2(FT) {
             const tinfo = @typeInfo(T);
             const x: FT = switch (tinfo) {
-                .Int => @floatFromInt(self.x),
-                .Float => self.x,
+                .int => @floatFromInt(self.x),
+                .float => self.x,
                 else => @compileError("V2 type needs to be numeric"),
             };
             const y: FT = switch (tinfo) {
-                .Int => @floatFromInt(self.y),
-                .Float => self.y,
+                .int => @floatFromInt(self.y),
+                .float => self.y,
                 else => @compileError("V2 type needs to be numeric"),
             };
             const m = self.mag(FT);
@@ -155,17 +155,17 @@ pub fn V2(comptime T: type) type {
         fn myTypeToOther(comptime O: type, v: T) O {
             const ot = @typeInfo(O);
             return switch (@typeInfo(T)) {
-                .Int => {
+                .int => {
                     return switch (ot) {
-                        .Int => @intCast(v),
-                        .Float => @floatFromInt(v),
+                        .int => @intCast(v),
+                        .float => @floatFromInt(v),
                         else => @compileError("V2 type needs to be numeric"),
                     };
                 },
-                .Float => {
+                .float => {
                     return switch (ot) {
-                        .Int => @intFromFloat(v),
-                        .Float => @floatCast(v),
+                        .int => @intFromFloat(v),
+                        .float => @floatCast(v),
                         else => @compileError("V2 type needs to be numeric"),
                     };
                 },

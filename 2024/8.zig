@@ -2,7 +2,7 @@ const std = @import("std");
 const zutils = @import("zutils");
 
 const V2 = zutils.V2(isize);
-const AntMap = std.AutoArrayHashMap(u8, std.ArrayList(V2));
+const AntMap = std.AutoArrayHashMap(u8, std.array_list.Managed(V2));
 
 fn deinitAntMap(map: *AntMap) void {
     for (map.values()) |v| {
@@ -21,7 +21,7 @@ fn parseAntenna(allocator: std.mem.Allocator, lines: []const []const u8) !AntMap
                 else => {
                     const res = try map.getOrPut(c);
                     if (!res.found_existing) {
-                        res.value_ptr.* = std.ArrayList(V2).init(allocator);
+                        res.value_ptr.* = std.array_list.Managed(V2).init(allocator);
                     }
                     try res.value_ptr.append(.{ .x = @intCast(x), .y = @intCast(y) });
                 },

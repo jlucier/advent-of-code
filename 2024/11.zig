@@ -1,7 +1,7 @@
 const std = @import("std");
 const zutils = @import("zutils");
 
-const StoneList = std.ArrayList(usize);
+const StoneList = std.array_list.Managed(usize);
 const CacheKey = struct {
     value: usize,
     steps: usize,

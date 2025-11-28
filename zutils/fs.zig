@@ -26,20 +26,22 @@ fn readLinesInner(
 ) !void {
     const file = try openFile(allocator, pathname, .{ .mode = .read_only });
     defer file.close();
-    const reader = file.reader();
+    var buf: [4096]u8 = undefined;
+    var freader = file.reader(&buf);
+    var reader = &freader.interface;
 
-    while (true) {
-        const ln = try reader.readUntilDelimiterOrEofAlloc(allocator, '\n', 1_000_000);
-
-        if (ln) |l| {
-            try list.append(l);
-        } else {
-            break;
-        }
+    while (reader.takeDelimiterInclusive('\n')) |ln| {
+        const cp = try list.arena.allocator().dupe(u8, ln[0 .. ln.len - 1]);
+        try list.append(cp);
+    } else |err| switch (err) {
+        error.EndOfStream => return, // stream ended not on a line break
+        error.StreamTooLong, // line could not fit in buffer
+        error.ReadFailed, // caller can check reader implementation for diagnostics
+        => |e| return e,
     }
 }
 
-/// Read lines of a file. ArrayList and strings inside are owned by caller
+/// Read lines of a file. array_list.Managed and strings inside are owned by caller
 pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !zutils.StringList {
     var ll = try zutils.StringList.init(allocator);
     try readLinesInner(ll.arena.allocator(), &ll, pathname);

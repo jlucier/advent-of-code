@@ -8,11 +8,11 @@ const Segment = struct {
 };
 
 const Layout = struct {
-    disk: std.ArrayList(Segment),
+    disk: std.array_list.Managed(Segment),
 
     pub fn init(allocator: std.mem.Allocator, str: []const u8) !Layout {
         var layout = Layout{
-            .disk = try std.ArrayList(Segment).initCapacity(allocator, str.len / 2 + str.len % 2),
+            .disk = try std.array_list.Managed(Segment).initCapacity(allocator, str.len / 2 + str.len % 2),
         };
 
         for (str, 0..) |_, i| {

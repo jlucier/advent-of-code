@@ -20,7 +20,7 @@ const State = struct {
     fn initParse(allocator: std.mem.Allocator, lines: []const []const u8) !State {
         const parser = zutils.makeIntParser(u8, u8, 10, 0);
         const grid = try Grid.init2DSliceWithParser(u8, allocator, lines, parser.parse);
-        var starts = std.ArrayList(V2).init(allocator);
+        var starts = std.array_list.Managed(V2).init(allocator);
         defer starts.deinit();
 
         var iter = grid.iterator();

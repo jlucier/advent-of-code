@@ -16,13 +16,13 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 pub const StringList = struct {
     owned: bool = false,
     arena: *std.heap.ArenaAllocator,
-    list: std.ArrayList([]u8),
+    list: std.array_list.Managed([]u8),
 
     pub fn initWithArena(arena: *ArenaAllocator) StringList {
         return .{
             .owned = false,
             .arena = arena,
-            .list = std.ArrayList([]u8).init(arena.allocator()),
+            .list = std.array_list.Managed([]u8).init(arena.allocator()),
         };
     }
 

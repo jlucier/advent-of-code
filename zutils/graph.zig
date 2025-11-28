@@ -10,7 +10,7 @@ const Allocator = std.mem.Allocator;
 /// fn getAdjacent(ctx: Context, allocator: Allocator, dv: VData) ![]{ v: VData, cost: usize }
 pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
     return struct {
-        const PredList = std.ArrayList(VData);
+        const PredList = std.array_list.Managed(VData);
 
         pub const Vertex = struct {
             v: VData,
@@ -166,12 +166,12 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
 
         const PathIterator = struct {
             dj: *const Self,
-            queue: std.ArrayList(*const Vertex),
+            queue: std.array_list.Managed(*const Vertex),
             seen: ?std.AutoHashMap(VData, void),
 
             fn init(dj: *const Self, start: VData, unique: bool) !PathIterator {
                 const allocator = dj.arena.allocator();
-                var q = try std.ArrayList(*const Vertex).initCapacity(allocator, 1);
+                var q = try std.array_list.Managed(*const Vertex).initCapacity(allocator, 1);
                 q.appendAssumeCapacity(dj.verts.getPtr(start).?);
                 return .{
                     .dj = dj,
@@ -186,7 +186,7 @@ pub fn Dijkstras(comptime VData: type, comptime Context: type) type {
             }
 
             pub fn next(self: *PathIterator) !?VData {
-                while (self.queue.popOrNull()) |dv| {
+                while (self.queue.pop()) |dv| {
                     if (self.seen) |*s| {
                         // if already retured, skip, otherwise add as we will return
                         if ((try s.getOrPut(dv.v)).found_existing) {
@@ -253,7 +253,7 @@ pub fn GridDijkstras(
                 allocator: Allocator,
                 dv: V2,
             ) ![]Edge {
-                var edges = try std.ArrayList(Edge).initCapacity(allocator, 4);
+                var edges = try std.array_list.Managed(Edge).initCapacity(allocator, 4);
                 const g = ctx.grid;
                 var iter = dv.iterNeighborsInGridBounds(g.ncols, g.nrows);
 
@@ -274,7 +274,7 @@ pub fn GridDijkstras(
         pub const DijkSolver = Dijkstras(V2, DijkCtx);
 
         fn makeVerts(allocator: Allocator, g: *const Grid) ![]V2 {
-            var verts = std.ArrayList(V2).init(allocator);
+            var verts = std.array_list.Managed(V2).init(allocator);
 
             var iter = g.iterator();
             while (iter.next()) |v| {
