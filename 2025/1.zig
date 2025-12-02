@@ -20,28 +20,30 @@ fn parts(lines: []const []const u8) ![2]usize {
             else => unreachable,
         };
 
-        og = pos;
-        pos += move;
+        p2 += @intCast(@abs(@divTrunc(mag, size)));
 
-        // std.debug.print("{d} {d} {} {}\n", //
-        //     .{ pos, @abs(@divTrunc(pos, size)), og != 0, endZero });
-        const mult = @divTrunc(mag, size);
-        p2 += @intCast(@abs(mult));
-        // undoing the integer multiple part, are we once again over
-        p2 += @intFromBool(pos - mult * size > size);
+        og = pos;
+        // apply remainder only as move
+        pos += @rem(move, size);
+
+        p2 += @intFromBool(pos > size);
+
         // fix position
         pos = @rem(pos, size);
         if (pos < 0) {
             pos += size;
+            // if we started at zero, the move negative doesn't cross
+            // and we already accounted for moves larger than -99
             p2 += @intFromBool(og != 0);
         }
 
         if (pos == 0) {
             p1 += 1;
-            p2 += @intFromBool(@rem(mag, size) != 0);
+            // once more, if we started at zero, the move was a pure
+            // multiple of size and we already would have counted this ending
+            // at zero by mag / size being integral
+            p2 += @intFromBool(og != 0);
         }
-        // std.debug.print("move: {s} results in {d} (p1 {d} and p2 {d})\n", //
-        //     .{ ln, pos, p1, p2 });
     }
     return .{ p1, p2 };
 }
