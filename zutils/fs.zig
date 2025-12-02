@@ -54,6 +54,16 @@ pub fn readLinesArena(arena: *std.heap.ArenaAllocator, pathname: []const u8) !zu
     return ll;
 }
 
+pub fn readFile(alloc: std.mem.Allocator, pathname: []const u8) ![]u8 {
+    const file = try openFile(alloc, pathname, .{ .mode = .read_only });
+    defer file.close();
+
+    var buf: [4096]u8 = undefined;
+    var freader = file.reader(&buf);
+    var reader = &freader.interface;
+    return reader.allocRemaining(alloc, .unlimited);
+}
+
 test "expand home" {
     const home = std.posix.getenv("HOME") orelse "";
     const p1 = "/something/other";
@@ -88,4 +98,12 @@ test "read lines" {
     try std.testing.expect(std.mem.eql(u8, ll.items()[2], "3000"));
     try std.testing.expect(std.mem.eql(u8, ll.items()[3], ""));
     try std.testing.expect(std.mem.eql(u8, ll.items()[4], "4000"));
+}
+
+test "read file" {
+    const f = try std.fs.cwd().realpathAlloc(std.testing.allocator, "zutils/test.txt");
+    defer std.testing.allocator.free(f);
+
+    const contents = try readFile(std.testing.allocator, f);
+    defer std.testing.allocator.free(contents);
 }
