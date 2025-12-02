@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const YEAR_DIRS = [_][]const u8{ "2022", "2024" };
+const YEAR_DIRS = [_][]const u8{ "2022", "2024", "2025" };
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
