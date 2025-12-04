@@ -3,10 +3,6 @@ const zutils = @import("zutils");
 
 fn solveLine(ln: []const u8, nbat: u8) !usize {
     var maxes: [12]u8 = undefined;
-    for (0..nbat) |i| {
-        maxes[i] = 0;
-    }
-
     var lastMax: usize = 0;
     for (0..nbat) |i| {
         const start = if (i > 0) lastMax + 1 else 0;
