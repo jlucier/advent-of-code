@@ -2,39 +2,39 @@ const std = @import("std");
 const zutils = @import("zutils.zig");
 
 /// Expand the ~ in a pathname to the users home dir. Caller owns the returned path string
-pub fn expandHomeDir(allocator: std.mem.Allocator, pathname: []const u8) ![]u8 {
+pub fn expandHomeDir(gpa: std.mem.Allocator, pathname: []const u8) ![]u8 {
     if (pathname[0] == '~' and (pathname.len == 1 or pathname[1] == '/')) {
         const home = std.posix.getenv("HOME") orelse "";
         const tmp = [_][]const u8{ home, pathname[1..] };
-        return std.mem.concat(allocator, u8, &tmp);
+        return std.mem.concat(gpa, u8, &tmp);
     }
 
-    return allocator.dupe(u8, pathname);
+    return gpa.dupe(u8, pathname);
 }
 
 /// Open a file using a path that may need expanding. File is callers to manage
-pub fn openFile(allocator: std.mem.Allocator, pathname: []const u8, flags: std.fs.File.OpenFlags) !std.fs.File {
-    const path = try expandHomeDir(allocator, pathname);
-    defer allocator.free(path);
+pub fn openFile(gpa: std.mem.Allocator, pathname: []const u8, flags: std.fs.File.OpenFlags) !std.fs.File {
+    const path = try expandHomeDir(gpa, pathname);
+    defer gpa.free(path);
     return std.fs.openFileAbsolute(path, flags);
 }
 
 fn readLinesInner(
-    allocator: std.mem.Allocator,
+    gpa: std.mem.Allocator,
     list: *zutils.StringList,
     pathname: []const u8,
 ) !void {
-    const file = try openFile(allocator, pathname, .{ .mode = .read_only });
-    defer file.close();
+    const f = try openFile(gpa, pathname, .{ .mode = .read_only });
+    defer f.close();
     var buf: [4096]u8 = undefined;
-    var freader = file.reader(&buf);
+    var freader = f.reader(&buf);
     var reader = &freader.interface;
 
     while (reader.takeDelimiterInclusive('\n')) |ln| {
         const cp = try list.arena.allocator().dupe(u8, ln[0 .. ln.len - 1]);
         try list.append(cp);
     } else |err| switch (err) {
-        error.EndOfStream => return, // stream ended not on a line break
+        error.EndOfStream => return,
         error.StreamTooLong, // line could not fit in buffer
         error.ReadFailed, // caller can check reader implementation for diagnostics
         => |e| return e,
@@ -42,8 +42,8 @@ fn readLinesInner(
 }
 
 /// Read lines of a file. array_list.Managed and strings inside are owned by caller
-pub fn readLines(allocator: std.mem.Allocator, pathname: []const u8) !zutils.StringList {
-    var ll = try zutils.StringList.init(allocator);
+pub fn readLines(gpa: std.mem.Allocator, pathname: []const u8) !zutils.StringList {
+    var ll = try zutils.StringList.init(gpa);
     try readLinesInner(ll.arena.allocator(), &ll, pathname);
     return ll;
 }
