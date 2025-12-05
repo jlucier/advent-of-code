@@ -5,54 +5,13 @@ pub const fmt = @import("fmt.zig");
 pub const vec = @import("vec.zig");
 pub const grid = @import("grid.zig");
 pub const graph = @import("graph.zig");
+pub const str = @import("str.zig");
 
 pub const Grid = grid.Grid;
 pub const V2 = vec.V2;
 pub const V2u = vec.V2u;
 pub const V2i = vec.V2i;
-
-const ArenaAllocator = std.heap.ArenaAllocator;
-
-pub const StringList = struct {
-    owned: bool = false,
-    arena: *std.heap.ArenaAllocator,
-    list: std.array_list.Managed([]u8),
-
-    pub fn initWithArena(arena: *ArenaAllocator) StringList {
-        return .{
-            .owned = false,
-            .arena = arena,
-            .list = std.array_list.Managed([]u8).init(arena.allocator()),
-        };
-    }
-
-    pub fn init(allocator: std.mem.Allocator) !StringList {
-        const arena = try allocator.create(ArenaAllocator);
-        arena.* = ArenaAllocator.init(allocator);
-        var ret = StringList.initWithArena(arena);
-        ret.owned = true;
-        return ret;
-    }
-
-    pub fn deinit(self: *const StringList) void {
-        if (self.owned) {
-            self.arena.deinit();
-            self.arena.child_allocator.destroy(self.arena);
-        }
-    }
-
-    pub fn size(self: *const StringList) usize {
-        return self.items().len;
-    }
-
-    pub fn items(self: *const StringList) []const []u8 {
-        return self.list.items;
-    }
-
-    pub fn append(self: *StringList, elem: []u8) !void {
-        try self.list.append(elem);
-    }
-};
+pub const StringList = str.StringList;
 
 /// Add up the values of a slice
 pub fn sum(comptime T: type, slice: []const T) T {
@@ -117,17 +76,6 @@ test "countNonzero" {
     const a = [_]i8{ 0, 1, -3, 0 };
     try std.testing.expectEqual(2, countNonzero(i8, &a));
 }
-
-// test "string list internal arena" {
-//     var sl = StringList.init(std.testing.allocator);
-//     const alloc = sl.arena.allocator();
-//     var i: usize = 0;
-//     while (i < 10) : (i += 1) {
-//         try sl.append(try alloc.alloc(u8, 10));
-//     }
-//
-//     try std.testing.expectEqual(10, sl.size());
-// }
 
 test {
     std.testing.refAllDecls(@This());

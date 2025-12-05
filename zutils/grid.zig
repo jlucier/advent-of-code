@@ -6,7 +6,7 @@ pub fn Grid(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        allocator: std.mem.Allocator,
+        gpa: std.mem.Allocator,
         nrows: usize,
         ncols: usize,
         data: []T,
@@ -30,17 +30,36 @@ pub fn Grid(comptime T: type) type {
             }
         };
 
-        pub fn init(allocator: std.mem.Allocator, rows: usize, cols: usize) !Self {
+        pub const NeighborType = enum {
+            cardinal,
+            diagonal,
+            all,
+        };
+
+        const NeighborIterator = struct {
+            positions: [8]vec.V2u = undefined,
+            curr: usize = 0,
+            total: usize = 0,
+
+            pub fn next(self: *@This()) ?vec.V2u {
+                if (self.curr >= self.total) return null;
+                const res = self.positions[self.curr];
+                self.curr += 1;
+                return res;
+            }
+        };
+
+        pub fn init(gpa: std.mem.Allocator, rows: usize, cols: usize) !Self {
             return .{
-                .allocator = allocator,
+                .gpa = gpa,
                 .nrows = rows,
                 .ncols = cols,
-                .data = try allocator.alloc(T, rows * cols),
+                .data = try gpa.alloc(T, rows * cols),
             };
         }
 
-        pub fn init2DSlice(allocator: std.mem.Allocator, sl: []const []const T) !Self {
-            var g = try Self.init(allocator, sl.len, sl[0].len);
+        pub fn init2DSlice(gpa: std.mem.Allocator, sl: []const []const T) !Self {
+            var g = try Self.init(gpa, sl.len, sl[0].len);
             for (sl, 0..) |row, i| {
                 for (row, 0..) |v, j| {
                     g.atPtr(i, j).* = v;
@@ -51,11 +70,11 @@ pub fn Grid(comptime T: type) type {
 
         pub fn init2DSliceWithParser(
             comptime OT: type,
-            allocator: std.mem.Allocator,
+            gpa: std.mem.Allocator,
             sl: []const []const OT,
             comptime parser: fn (v: OT) T,
         ) !Self {
-            var g = try Self.init(allocator, sl.len, sl[0].len);
+            var g = try Self.init(gpa, sl.len, sl[0].len);
             for (sl, 0..) |row, i| {
                 for (row, 0..) |v, j| {
                     g.atPtr(i, j).* = parser(v);
@@ -65,13 +84,13 @@ pub fn Grid(comptime T: type) type {
         }
 
         pub fn deinit(self: *const Self) void {
-            self.allocator.free(self.data);
+            self.gpa.free(self.data);
         }
 
         pub fn clone(self: *const Self) !Self {
             return .{
-                .allocator = self.allocator,
-                .data = try self.allocator.dupe(T, self.data),
+                .gpa = self.gpa,
+                .data = try self.gpa.dupe(T, self.data),
                 .nrows = self.nrows,
                 .ncols = self.ncols,
             };
@@ -85,8 +104,8 @@ pub fn Grid(comptime T: type) type {
 
         /// Swap the Y Axis
         pub fn transposeY(self: *Self) !void {
-            const swap = try self.allocator.alloc(T, self.ncols);
-            defer self.allocator.free(swap);
+            const swap = try self.gpa.alloc(T, self.ncols);
+            defer self.gpa.free(swap);
 
             var i: usize = 0;
             while (i < self.nrows / 2) : (i += 1) {
@@ -135,6 +154,35 @@ pub fn Grid(comptime T: type) type {
                 .ncols = self.ncols,
                 .nrows = self.nrows,
             };
+        }
+
+        pub fn neighbors(self: *const Self, loc: vec.V2u, typ: NeighborType) NeighborIterator {
+            var nbors = NeighborIterator{};
+            const iy: isize = @intCast(loc.y);
+            const ix: isize = @intCast(loc.x);
+            const steps = [3]isize{ -1, 0, 1 };
+
+            for (steps) |sy| {
+                const y = iy + sy;
+
+                for (steps) |sx| {
+                    const x = ix + sx;
+
+                    if ((x == ix and y == iy) or !self.inBounds(x, y)) {
+                        continue;
+                    }
+
+                    const thisType = if (x != ix and y != iy) NeighborType.diagonal //
+                    else NeighborType.cardinal;
+                    if (typ != .all and typ != thisType) {
+                        continue;
+                    }
+
+                    nbors.positions[nbors.total] = .{ .x = @intCast(x), .y = @intCast(y) };
+                    nbors.total += 1;
+                }
+            }
+            return nbors;
         }
 
         pub fn print(self: *const Self) void {
@@ -243,4 +291,43 @@ test "grid iterator" {
         try std.testing.expect(maxIter >= i);
     }
     try std.testing.expectEqual(maxIter, i);
+}
+
+const TestNeighborResult = struct {
+    positions: [8]vec.V2u = undefined,
+    n: usize = 0,
+};
+
+fn exhaustNeighbors(nbors: anytype) TestNeighborResult {
+    var res = TestNeighborResult{};
+    while (nbors.next()) |nb| {
+        res.positions[res.n] = nb;
+        res.n += 1;
+    }
+    return res;
+}
+
+test "grid neighbors" {
+    const g = try Grid(u8).init(std.testing.allocator, 5, 5);
+    defer g.deinit();
+
+    // center point with all 8 neighbors
+    var iter = g.neighbors(.{ .x = 2, .y = 2 }, .all);
+    const nbors = exhaustNeighbors(&iter);
+    try std.testing.expectEqual(8, nbors.n);
+
+    var iter2 = g.neighbors(.{ .x = 0, .y = 0 }, .all);
+    const nbors2 = exhaustNeighbors(&iter2);
+    try std.testing.expectEqual(3, nbors2.n);
+
+    var iter3 = g.neighbors(.{ .x = 0, .y = 0 }, .cardinal);
+    const nbors3 = exhaustNeighbors(&iter3);
+    try std.testing.expectEqual(2, nbors3.n);
+    try std.testing.expect(nbors3.positions[0].equal(.{ .x = 1, .y = 0 }));
+    try std.testing.expect(nbors3.positions[1].equal(.{ .x = 0, .y = 1 }));
+
+    var iter4 = g.neighbors(.{ .x = 0, .y = 0 }, .diagonal);
+    const nbors4 = exhaustNeighbors(&iter4);
+    try std.testing.expectEqual(1, nbors4.n);
+    try std.testing.expect(nbors4.positions[0].equal(.{ .x = 1, .y = 1 }));
 }
