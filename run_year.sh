@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if ! command -v hyperfine >/dev/null 2>&1; then
+    echo "Error: hyperfine is not installed. Please install it first."
+    exit 1
+fi
+
 zig build --release=fast
 
 # ---- CONFIG ----
@@ -20,34 +25,20 @@ format_time_smart() {
     '
 }
 
-# Convert bytes → human readable
-format_bytes() {
-    local b="$1"
-    awk -v b="$b" '
-        function human(x) {
-            split("B KB MB GB TB PB", u)
-            for (i=5; i>=1; i--) if (x >= 1024^i) return sprintf("%.2f %s", x/1024^i, u[i+1])
-            return sprintf("%d B", x)
-        }
-        BEGIN { print human(b) }
-    '
-}
 
 total_mean_sec=0
 
 echo "Running benchmarks with hyperfine..."
 echo
 
-printf "%-12s │ %-12s │ %-12s │ %-12s │ %-12s │ %-5s │ %-10s\n" \
-  "Executable" "Mean" "Stddev" "Min" "Max" "Runs" "Mem"
-printf "%s\n" "─────────────┼──────────────┼──────────────┼──────────────┼──────────────┼───────┼───────────"
+printf "%-12s │ %-12s │ %-12s │ %-12s │ %-12s │ %-5s\n" \
+  "Executable" "Mean" "Stddev" "Min" "Max" "Runs"
+printf "%s\n" "─────────────┼──────────────┼──────────────┼──────────────┼──────────────┼───────"
 
-for file in "$YEAR"/*.zig; do
-    exe=${file//\//_}
-    exe=${exe%.zig}
-    path="./zig-out/bin/$exe"
+for file in ./zig-out/bin/${YEAR}*; do
+    exe=$(basename $file)
 
-    [ ! -f "$path" ] && { echo "Missing executable: $path"; continue; }
+    [ ! -f "$file" ] && { echo "Missing executable: $file"; continue; }
 
     tmp_json=$(mktemp)
 
@@ -57,7 +48,7 @@ for file in "$YEAR"/*.zig; do
         --max-runs 50 \
         --export-json "$tmp_json" \
         --shell=none \
-        "$path >/dev/null 2>&1" \
+        "$file >/dev/null 2>&1" \
         > /dev/null 2>&1
 
     # Extract values using jq
@@ -67,30 +58,21 @@ for file in "$YEAR"/*.zig; do
     stddev=$(jq -r '.results[0].stddev | if .==null then 0 else . end' "$tmp_json")
     mem=$(jq -r '.results[0].memory_usage | if .==null then 0 else . end' "$tmp_json")
     run_count=$(jq '.results[0].times | length' "$tmp_json")
-    mem=$(jq '.results[0].memory_usage_byte[0]' "$tmp_json")
-
-
-    if (( mem > 0 )); then
-      human_mem=$(format_bytes "$mem")
-    else
-      human_mem="n/a"
-    fi
 
     rm "$tmp_json"
 
     total_mean_sec=$(awk -v a="$total_mean_sec" -v m="$mean" 'BEGIN { printf "%.10f", a+m }')
 
-    printf "%12s │ %12s │ %12s │ %12s │ %12s │ %5d │ %10s\n" \
+    printf "%12s │ %12s │ %12s │ %12s │ %12s │ %5d\n" \
       "$exe" \
       "$(format_time_smart "$mean")" \
       "$(format_time_smart "$stddev")" \
       "$(format_time_smart "$min")" \
       "$(format_time_smart "$max")" \
-      "$run_count" \
-      "$human_mem"
+      "$run_count"
 
 done
 
-printf "%s\n" "─────────────────────────────────────────────────────────────────────────────────────────────"
+printf "%s\n" "─────────────────────────────────────────────────────────────────────────────────"
 printf "Total (mean): %s\n" "$(format_time_smart "$total_mean_sec")"
 
