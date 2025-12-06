@@ -1,19 +1,7 @@
 const std = @import("std");
 const zutils = @import("zutils");
 
-const Range = struct {
-    begin: u32,
-    end: u32,
-
-    pub fn contains(self: *const Range, other: *const Range) bool {
-        return self.begin <= other.begin and self.end >= other.end;
-    }
-
-    pub fn overlaps(self: *const Range, other: *const Range) bool {
-        return self.contains(other) or (self.begin >= other.begin and self.begin <= other.end) //
-        or (self.end >= other.begin and self.end <= other.end);
-    }
-};
+const Range = zutils.Range(u32);
 
 fn parseRange(str: []const u8) !Range {
     var iter = std.mem.splitScalar(u8, str, '-');

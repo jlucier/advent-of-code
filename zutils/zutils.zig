@@ -13,6 +13,28 @@ pub const V2u = vec.V2u;
 pub const V2i = vec.V2i;
 pub const StringList = str.StringList;
 
+pub fn Range(comptime T: type) type {
+    return struct {
+        begin: T,
+        end: T,
+
+        const Self = @This();
+
+        pub fn contains(self: *const Self, other: *const Self) bool {
+            return self.begin <= other.begin and self.end >= other.end;
+        }
+
+        pub fn containsScalar(self: *const Self, v: T) bool {
+            return self.begin <= v and self.end >= v;
+        }
+
+        pub fn overlaps(self: *const Self, other: *const Self) bool {
+            return self.contains(other) or (self.begin >= other.begin and self.begin <= other.end) //
+            or (self.end >= other.begin and self.end <= other.end);
+        }
+    };
+}
+
 /// Add up the values of a slice
 pub fn sum(comptime T: type, slice: []const T) T {
     var s: T = 0;
