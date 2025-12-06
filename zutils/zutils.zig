@@ -42,6 +42,12 @@ pub fn sum(comptime T: type, slice: []const T) T {
     return s;
 }
 
+pub fn mul(comptime T: type, slice: []const T) T {
+    var s: T = 1;
+    for (slice) |el| s *= el;
+    return s;
+}
+
 pub fn countNonzero(comptime T: type, slice: []const T) usize {
     var s: usize = 0;
     for (slice) |el| s += if (el != 0) 1 else 0;
