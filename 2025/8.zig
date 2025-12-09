@@ -33,22 +33,27 @@ const PairSortCtx = struct {
     vecs: []V3,
 };
 
-fn shorterPair(ctx: PairSortCtx, a: [2]usize, b: [2]usize) bool {
-    return ctx.vecs[a[0]].sub(ctx.vecs[a[1]]).mag(f32) < //
-        ctx.vecs[b[0]].sub(ctx.vecs[b[1]]).mag(f32);
+const V3Pair = struct {
+    i: usize,
+    j: usize,
+    dist: f32,
+};
+
+fn shorterPair(_: void, a: V3Pair, b: V3Pair) bool {
+    return a.dist < b.dist;
 }
 
-fn shortestPairs(gpa: std.mem.Allocator, vecs: []V3) ![][2]usize {
-    var pairs = try gpa.alloc([2]usize, zutils.combinations(usize, vecs.len, 2));
+fn shortestPairs(gpa: std.mem.Allocator, vecs: []V3) ![]V3Pair {
+    var pairs = try gpa.alloc(V3Pair, zutils.combinations(usize, vecs.len, 2));
 
     var pi: usize = 0;
     for (0..vecs.len) |i| {
         for (i + 1..vecs.len) |j| {
-            pairs[pi] = .{ i, j };
+            pairs[pi] = .{ .i = i, .j = j, .dist = vecs[i].sub(vecs[j]).mag(f32) };
             pi += 1;
         }
     }
-    std.mem.sort([2]usize, pairs, PairSortCtx{ .vecs = vecs }, shorterPair);
+    std.mem.sort(V3Pair, pairs, {}, shorterPair);
     return pairs;
 }
 
@@ -70,9 +75,8 @@ fn solve(gpa: std.mem.Allocator, inp: []const u8, n: usize) ![2]isize {
     var p2: isize = 0;
 
     for (pairs, 0..) |pair, pi| {
-        // const pair = minPair(vecs, box2Circuit);
-        const i = pair[0];
-        const j = pair[1];
+        const i = pair.i;
+        const j = pair.j;
         const iconn = box2Circuit[i] < vecs.len;
         const jconn = box2Circuit[j] < vecs.len;
 
