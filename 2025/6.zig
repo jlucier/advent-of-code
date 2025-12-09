@@ -35,12 +35,11 @@ fn parseOperandLine(gpa: std.mem.Allocator, ln: []const u8) ![]Equation {
 
     var iter = std.mem.tokenizeScalar(u8, ln, ' ');
     var i: usize = 0;
-    while (iter.next()) |op| {
+    while (iter.next()) |op| : (i += 1) {
         eqns[i].colStart = iter.index - op.len;
         eqns[i].operator = op[0];
         eqns[i].p1ops.size = 0;
         eqns[i].p2ops.size = 0;
-        i += 1;
     }
     return eqns;
 }

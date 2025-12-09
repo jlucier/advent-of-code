@@ -20,6 +20,87 @@ fn toSigned(comptime T: type) type {
     };
 }
 
+pub fn Vec(comptime T: type, comptime n: usize) type {
+    return struct {
+        data: [n]T,
+
+        const Self = @This();
+        pub const ValueT = T;
+
+        pub fn x(self: *const Self) T {
+            std.debug.assert(self.data.len > 0);
+            return self.data[0];
+        }
+
+        pub fn y(self: *const Self) T {
+            std.debug.assert(self.data.len > 1);
+            return self.data[1];
+        }
+
+        pub fn z(self: *const Self) T {
+            std.debug.assert(self.data.len > 2);
+            return self.data[1];
+        }
+
+        pub fn add(self: *const Self, other: Self) Self {
+            var new = Self{ .data = self.data };
+            new.addMut(other);
+            return new;
+        }
+
+        pub fn addMut(self: *Self, other: Self) void {
+            for (&self.data, 0..) |*d, i| {
+                d.* += other.data[i];
+            }
+        }
+
+        pub fn sub(self: *const Self, other: Self) Self {
+            var new = Self{ .data = self.data };
+            new.subMut(other);
+            return new;
+        }
+
+        pub fn subMut(self: *Self, other: Self) void {
+            for (&self.data, 0..) |*d, i| {
+                d.* -= other.data[i];
+            }
+        }
+
+        pub fn dot(self: *const Self, other: Self) T {
+            var ret: T = 0;
+            for (self.data, 0..) |d, i| {
+                ret += d * other.data[i];
+            }
+            return ret;
+        }
+
+        pub fn mul(self: *const Self, v: T) Self {
+            var newData: [n]T = undefined;
+            for (self.data, 0..) |d, i| {
+                newData[i] = d * v;
+            }
+            return .{ .data = newData };
+        }
+
+        pub fn mag(self: *const Self, comptime FT: type) FT {
+            var tmp: T = 0;
+            for (self.data) |d| {
+                tmp += d * d;
+            }
+            const f: FT = switch (@typeInfo(T)) {
+                .int => @floatFromInt(tmp),
+                .float => tmp,
+                else => @compileError("V2 type needs to be numeric"),
+            };
+            return std.math.sqrt(f);
+        }
+
+        pub fn equal(self: *const Self, other: Self) bool {
+            return std.mem.eql(T, &self.data, &other.data);
+        }
+    };
+}
+
 pub fn V2(comptime T: type) type {
     return struct {
         x: T = 0,
@@ -259,6 +340,19 @@ test "V2" {
     try std.testing.expect(s.equal(.{ .x = -1, .y = -2 }));
     try std.testing.expect(v.unit(f32).equal(.{ .x = std.math.sqrt1_2, .y = std.math.sqrt1_2 }));
     try std.testing.expectEqual(11, d);
+}
+
+test "Vec" {
+    const V3 = Vec(f32, 3);
+    const a = V3{ .data = .{ 0, 1, 0 } };
+    const b = V3{ .data = .{ 0, 0, 1 } };
+
+    try std.testing.expect(a.equal(a));
+    try std.testing.expect(!a.equal(b));
+    try std.testing.expect(a.add(b).equal(.{ .data = .{ 0, 1, 1 } }));
+    try std.testing.expect(a.sub(b).equal(.{ .data = .{ 0, 1, -1 } }));
+    try std.testing.expectEqual(0, a.dot(b));
+    try std.testing.expectApproxEqAbs(std.math.sqrt2, a.add(b).mag(f32), 0.001);
 }
 
 test "V2 astype" {

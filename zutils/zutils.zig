@@ -48,6 +48,26 @@ pub fn mul(comptime T: type, slice: []const T) T {
     return s;
 }
 
+pub fn factorial(comptime T: type, n: T) T {
+    var v: T = n;
+    for (1..n) |i| {
+        const vi: T = @intCast(i);
+        v *= n - vi;
+    }
+    return v;
+}
+
+// Combinations of n choose k
+pub fn combinations(comptime T: type, n: T, k: T) T {
+    if (n < k) return 0;
+    var num: T = n;
+    for (1..k) |i| {
+        const v: T = @intCast(i);
+        num *= n - v;
+    }
+    return num / factorial(T, k);
+}
+
 pub fn countNonzero(comptime T: type, slice: []const T) usize {
     var s: usize = 0;
     for (slice) |el| s += if (el != 0) 1 else 0;
@@ -98,6 +118,11 @@ test "sum" {
 
     const b = [_]i32{ -1, 2, 3, -4 };
     try std.testing.expectEqual(0, sum(i32, &b));
+}
+
+test "combinations" {
+    try std.testing.expectEqual(3, combinations(u8, 3, 2));
+    try std.testing.expectEqual(2_598_960, combinations(usize, 52, 5));
 }
 
 test "countNonzero" {
