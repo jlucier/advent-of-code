@@ -83,6 +83,27 @@ pub fn Grid(comptime T: type) type {
             return g;
         }
 
+        pub fn initFromVectors(
+            gpa: std.mem.Allocator,
+            vecs: []const vec.V2u,
+            present: T,
+            empty: T,
+        ) !Self {
+            var sx: usize = 0;
+            var sy: usize = 0;
+            for (vecs) |v| {
+                sx = @max(sx, v.x);
+                sy = @max(sy, v.y);
+            }
+
+            var g = try Self.init(gpa, sy + 1, sx + 1);
+            g.fill(empty);
+            for (vecs) |v| {
+                g.atPtrV(v).* = present;
+            }
+            return g;
+        }
+
         pub fn deinit(self: *const Self) void {
             self.gpa.free(self.data);
         }

@@ -346,7 +346,7 @@ fn EdgeIter(comptime T: type) type {
             self.i += 1;
             return .{
                 &self.poly[i],
-                &self.poly[if (i > 0) i - 1 else self.poly.len - 1],
+                &self.poly[(i + 1) % self.poly.len],
             };
         }
     };
@@ -365,45 +365,40 @@ pub fn pointInPoly(comptime T: type, poly: []const V2(T), point: V2(T)) bool {
     var iter = EdgeIter(T){ .poly = poly };
 
     // check if point lies on actual edge
+    var inside = false;
     while (iter.next()) |e| {
         if (pointOnEdge(T, e, point)) {
             return true;
         }
-    }
+        var a = e[0];
+        var b = e[1];
 
-    var cross: usize = 0;
-    const upper: usize = @intCast(point.x + 1);
-    var x: usize = 0;
-    while (x < upper) {
-        iter.reset();
+        if (a.y > b.y) {
+            const tmp = a;
+            a = b;
+            b = tmp;
+        }
 
-        while (iter.next()) |e| {
-            if (e[1].y <= point.y) continue;
+        if (point.y <= a.y or point.y > b.y) continue;
 
-            if (pointOnEdge(T, e, .{ .x = @intCast(x), .y = point.y })) {
-                cross += 1;
-                continue;
+        if ((a.y > point.y) != (b.y > point.y)) {
+            const ax: isize = @intCast(a.x);
+            const ay: isize = @intCast(a.y);
+            const bx: isize = @intCast(b.x);
+            const by: isize = @intCast(b.y);
+            const px: isize = @intCast(point.x);
+            const py: isize = @intCast(point.y);
+
+            const cross = (px - ax) * (by - ay);
+            const edge = (bx - ax) * (py - ay);
+
+            if (cross < edge) {
+                inside = !inside;
             }
         }
-
-        // find next x
-        var nextX: usize = std.math.maxInt(usize);
-        iter.reset();
-        while (iter.next()) |e| {
-            const lx = @min(e[0].x, e[1].x);
-            if (lx <= x) continue;
-
-            nextX = @intCast(@min(lx, nextX));
-        }
-        x = nextX;
     }
-    return cross % 2 == 1;
-}
 
-pub fn quadInPoly(comptime T: type, poly: []const V2(T), p1: V2(T), p2: V2(T)) bool {
-    return pointInPoly(T, poly, p1) and pointInPoly(T, poly, p2) //
-    and pointInPoly(T, poly, .{ .x = p1.x, .y = p2.y }) //
-    and pointInPoly(T, poly, .{ .x = p2.x, .y = p1.y });
+    return inside;
 }
 
 test "V2" {
@@ -438,18 +433,84 @@ test "V2 astype" {
     try std.testing.expect(v.equal(v.asType(isize).asType(usize)));
 }
 
-const testPoly = [_]V2u{
-    .{ .x = 7, .y = 1 },
-    .{ .x = 11, .y = 1 },
-    .{ .x = 11, .y = 7 },
-    .{ .x = 9, .y = 7 },
-    .{ .x = 9, .y = 5 },
-    .{ .x = 2, .y = 5 },
-    .{ .x = 2, .y = 3 },
-    .{ .x = 7, .y = 3 },
-};
+fn vizTest(gpa: std.mem.Allocator, poly: []const V2u, hl: ?[]const V2u) !void {
+    const g = try zutils.Grid(u8).initFromVectors(gpa, poly, '#', '.');
+    defer g.deinit();
+    g.printHl(hl);
+}
 
-test "pointInPoly" {
+test "pointInPoly.box" {
+    const poly = [_]V2u{
+        .{ .x = 0, .y = 0 },
+        .{ .x = 4, .y = 0 },
+        .{ .x = 4, .y = 4 },
+        .{ .x = 0, .y = 4 },
+    };
+
+    // vertex hits
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 0, .y = 0 }));
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 4, .y = 0 }));
+
+    // edge hits
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 4, .y = 2 }));
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 2, .y = 4 }));
+
+    // center
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 2, .y = 2 }));
+
+    // out
+    try std.testing.expect(!pointInPoly(usize, &poly, .{ .x = 5, .y = 2 }));
+    try std.testing.expect(!pointInPoly(usize, &poly, .{ .x = 2, .y = 5 }));
+}
+
+test "pointInPoly colinear consecutive edge" {
+    const poly = [_]V2u{
+        .{ .x = 0, .y = 0 },
+        .{ .x = 5, .y = 0 },
+        .{ .x = 10, .y = 0 }, // collinear continuation
+        .{ .x = 10, .y = 5 },
+        .{ .x = 0, .y = 5 },
+    };
+
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 7, .y = 0 }));
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 7, .y = 2 }));
+}
+
+test "pointInPoly coincident with edge + corner" {
+    // A "step" polygon that has a horizontal edge at y=2,
+    // but points with py=2 are not necessarily on the boundary.
+    const poly = [_]V2u{
+        .{ .x = 0, .y = 0 },
+        .{ .x = 6, .y = 0 },
+        .{ .x = 6, .y = 4 },
+        .{ .x = 4, .y = 4 },
+        .{ .x = 4, .y = 2 },
+        .{ .x = 2, .y = 2 },
+        .{ .x = 2, .y = 4 },
+        .{ .x = 0, .y = 4 },
+    };
+
+    // coincident with edge
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 1, .y = 2 }));
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 3, .y = 2 }));
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 5, .y = 2 }));
+
+    // corner
+    try std.testing.expect(!pointInPoly(usize, &poly, .{ .x = 3, .y = 3 }));
+    try std.testing.expect(pointInPoly(usize, &poly, .{ .x = 5, .y = 3 }));
+}
+
+test "pointInPoly AOC" {
+    const testPoly = [_]V2u{
+        .{ .x = 7, .y = 1 },
+        .{ .x = 11, .y = 1 },
+        .{ .x = 11, .y = 7 },
+        .{ .x = 9, .y = 7 },
+        .{ .x = 9, .y = 5 },
+        .{ .x = 2, .y = 5 },
+        .{ .x = 2, .y = 3 },
+        .{ .x = 7, .y = 3 },
+    };
     // endpoints
     try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 9, .y = 5 }));
     try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 2, .y = 3 }));
@@ -458,11 +519,28 @@ test "pointInPoly" {
     try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 9, .y = 3 }));
 }
 
-test "quadInPoly" {
-    try std.testing.expect(quadInPoly(
+test "pointOnEdge" {
+    // Horizontal edge
+    try std.testing.expect(pointOnEdge(
         usize,
-        &testPoly,
+        .{ &.{ .x = 2, .y = 5 }, &.{ .x = 9, .y = 5 } },
         .{ .x = 9, .y = 5 },
-        .{ .x = 2, .y = 3 },
+    ));
+    try std.testing.expect(!pointOnEdge(
+        usize,
+        .{ &.{ .x = 2, .y = 5 }, &.{ .x = 9, .y = 5 } },
+        .{ .x = 9, .y = 4 },
+    ));
+
+    // Vertical edge
+    try std.testing.expect(pointOnEdge(
+        usize,
+        .{ &.{ .x = 5, .y = 1 }, &.{ .x = 5, .y = 7 } },
+        .{ .x = 5, .y = 3 },
+    ));
+    try std.testing.expect(!pointOnEdge(
+        usize,
+        .{ &.{ .x = 5, .y = 1 }, &.{ .x = 5, .y = 7 } },
+        .{ .x = 6, .y = 3 },
     ));
 }
