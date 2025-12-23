@@ -329,6 +329,83 @@ pub fn V2(comptime T: type) type {
     };
 }
 
+fn EdgeIter(comptime T: type) type {
+    return struct {
+        poly: []const V2(T),
+        i: usize = 0,
+
+        pub fn reset(self: *@This()) void {
+            self.i = 0;
+        }
+
+        pub fn next(self: *@This()) ?[2]*const V2(T) {
+            if (self.i >= self.poly.len) {
+                return null;
+            }
+            const i = self.i;
+            self.i += 1;
+            return .{
+                &self.poly[i],
+                &self.poly[if (i > 0) i - 1 else self.poly.len - 1],
+            };
+        }
+    };
+}
+
+fn pointOnEdge(comptime T: type, e: [2]*const V2(T), point: V2(T)) bool {
+    const lx = @min(e[0].x, e[1].x);
+    const hx = @max(e[0].x, e[1].x);
+    const ly = @min(e[0].y, e[1].y);
+    const hy = @max(e[0].y, e[1].y);
+
+    return point.x >= lx and point.x <= hx and point.y >= ly and point.y <= hy;
+}
+
+pub fn pointInPoly(comptime T: type, poly: []const V2(T), point: V2(T)) bool {
+    var iter = EdgeIter(T){ .poly = poly };
+
+    // check if point lies on actual edge
+    while (iter.next()) |e| {
+        if (pointOnEdge(T, e, point)) {
+            return true;
+        }
+    }
+
+    var cross: usize = 0;
+    const upper: usize = @intCast(point.x + 1);
+    var x: usize = 0;
+    while (x < upper) {
+        iter.reset();
+
+        while (iter.next()) |e| {
+            if (e[1].y <= point.y) continue;
+
+            if (pointOnEdge(T, e, .{ .x = @intCast(x), .y = point.y })) {
+                cross += 1;
+                continue;
+            }
+        }
+
+        // find next x
+        var nextX: usize = std.math.maxInt(usize);
+        iter.reset();
+        while (iter.next()) |e| {
+            const lx = @min(e[0].x, e[1].x);
+            if (lx <= x) continue;
+
+            nextX = @intCast(@min(lx, nextX));
+        }
+        x = nextX;
+    }
+    return cross % 2 == 1;
+}
+
+pub fn quadInPoly(comptime T: type, poly: []const V2(T), p1: V2(T), p2: V2(T)) bool {
+    return pointInPoly(T, poly, p1) and pointInPoly(T, poly, p2) //
+    and pointInPoly(T, poly, .{ .x = p1.x, .y = p2.y }) //
+    and pointInPoly(T, poly, .{ .x = p2.x, .y = p1.y });
+}
+
 test "V2" {
     const v = V2(i8){ .x = 1, .y = 1 };
     const a = v.add(.{ .x = 2, .y = 3 });
@@ -359,4 +436,33 @@ test "V2 astype" {
     const v = V2(usize){ .x = 1, .y = 0 };
 
     try std.testing.expect(v.equal(v.asType(isize).asType(usize)));
+}
+
+const testPoly = [_]V2u{
+    .{ .x = 7, .y = 1 },
+    .{ .x = 11, .y = 1 },
+    .{ .x = 11, .y = 7 },
+    .{ .x = 9, .y = 7 },
+    .{ .x = 9, .y = 5 },
+    .{ .x = 2, .y = 5 },
+    .{ .x = 2, .y = 3 },
+    .{ .x = 7, .y = 3 },
+};
+
+test "pointInPoly" {
+    // endpoints
+    try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 9, .y = 5 }));
+    try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 2, .y = 3 }));
+    // other
+    try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 2, .y = 5 }));
+    try std.testing.expect(pointInPoly(usize, &testPoly, .{ .x = 9, .y = 3 }));
+}
+
+test "quadInPoly" {
+    try std.testing.expect(quadInPoly(
+        usize,
+        &testPoly,
+        .{ .x = 9, .y = 5 },
+        .{ .x = 2, .y = 3 },
+    ));
 }
