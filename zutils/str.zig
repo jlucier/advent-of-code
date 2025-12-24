@@ -44,13 +44,29 @@ pub const StringList = struct {
 };
 
 pub fn splitScalar(gpa: std.mem.Allocator, buf: []const u8, delimiter: u8) ![][]const u8 {
-    var array = std.array_list.Managed([]const u8).init(gpa);
+    var array = try gpa.alloc([]const u8, std.mem.count(u8, buf, &[1]u8{delimiter}) + 1);
     var iter = std.mem.splitScalar(u8, buf, delimiter);
 
-    while (iter.next()) |part| {
-        try array.append(part);
+    var i: usize = 0;
+    while (iter.next()) |part| : (i += 1) {
+        array[i] = part;
     }
-    return array.toOwnedSlice();
+    return array;
+}
+
+pub fn parseInts(
+    comptime T: type,
+    gpa: std.mem.Allocator,
+    buf: []const u8,
+    delimiter: u8,
+) ![]T {
+    var array = try gpa.alloc(T, std.mem.count(u8, buf, &[1]u8{delimiter}) + 1);
+    var iter = std.mem.splitScalar(u8, buf, delimiter);
+    var i: usize = 0;
+    while (iter.next()) |part| : (i += 1) {
+        array[i] = try std.fmt.parseInt(T, part, 10);
+    }
+    return array;
 }
 
 // test "string list internal arena" {
