@@ -79,34 +79,25 @@ fn solve(gpa: std.mem.Allocator, inp: []const u8) ![2]usize {
     return .{ v1, v2 };
 }
 
+const exampleInput =
+    \\7,1
+    \\11,1
+    \\11,7
+    \\9,7
+    \\9,5
+    \\2,5
+    \\2,3
+    \\7,3
+;
+
 test "example" {
-    const input =
-        \\7,1
-        \\11,1
-        \\11,7
-        \\9,7
-        \\9,5
-        \\2,5
-        \\2,3
-        \\7,3
-    ;
-    const res = try solve(std.testing.allocator, input);
+    const res = try solve(std.testing.allocator, exampleInput);
     try std.testing.expectEqual(50, res[0]);
     try std.testing.expectEqual(24, res[1]);
 }
 
 test "validateRect" {
-    const input =
-        \\7,1
-        \\11,1
-        \\11,7
-        \\9,7
-        \\9,5
-        \\2,5
-        \\2,3
-        \\7,3
-    ;
-    const poly = try parse(std.testing.allocator, input);
+    const poly = try parse(std.testing.allocator, exampleInput);
     defer std.testing.allocator.free(poly);
 
     try std.testing.expect(validateRect(poly, .{ .x = 7, .y = 1 }, .{ .x = 11, .y = 5 }));
