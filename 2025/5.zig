@@ -81,14 +81,14 @@ const DB = struct {
         try newRanges.append(self.ranges[0]);
         for (self.ranges[1..]) |*b| {
             var a = &newRanges.items[newRanges.items.len - 1];
-            if (b.contains(a)) {
+            if (b.contains(a.*)) {
                 // b subsumes a, overwrite
                 a.* = b.*;
                 continue;
-            } else if (a.contains(b)) {
+            } else if (a.contains(b.*)) {
                 // do nothing, a full encapsulates b
                 continue;
-            } else if (a.overlaps(b)) {
+            } else if (a.overlaps(b.*)) {
                 // augment a to remove overlap with b
                 a.end = @max(a.begin, b.begin - 1);
             }

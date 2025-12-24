@@ -329,7 +329,7 @@ pub fn V2(comptime T: type) type {
     };
 }
 
-fn EdgeIter(comptime T: type) type {
+pub fn PolyEdgeIter(comptime T: type) type {
     return struct {
         poly: []const V2(T),
         i: usize = 0,
@@ -362,7 +362,7 @@ fn pointOnEdge(comptime T: type, e: [2]*const V2(T), point: V2(T)) bool {
 }
 
 pub fn pointInPoly(comptime T: type, poly: []const V2(T), point: V2(T)) bool {
-    var iter = EdgeIter(T){ .poly = poly };
+    var iter = PolyEdgeIter(T){ .poly = poly };
 
     // check if point lies on actual edge
     var inside = false;
@@ -431,12 +431,6 @@ test "V2 astype" {
     const v = V2(usize){ .x = 1, .y = 0 };
 
     try std.testing.expect(v.equal(v.asType(isize).asType(usize)));
-}
-
-fn vizTest(gpa: std.mem.Allocator, poly: []const V2u, hl: ?[]const V2u) !void {
-    const g = try zutils.Grid(u8).initFromVectors(gpa, poly, '#', '.');
-    defer g.deinit();
-    g.printHl(hl);
 }
 
 test "pointInPoly.box" {

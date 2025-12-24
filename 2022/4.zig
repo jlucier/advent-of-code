@@ -27,8 +27,8 @@ test "parsing" {
 
     const ln = try parseLine("31-34,32-33");
 
-    try std.testing.expect(ln[0].contains(&ln[1]));
-    try std.testing.expect(!ln[1].contains(&ln[0]));
+    try std.testing.expect(ln[0].contains(ln[1]));
+    try std.testing.expect(!ln[1].contains(ln[0]));
 }
 
 test "overlaps" {
@@ -45,12 +45,12 @@ test "overlaps" {
 
     for (overlap) |ln| {
         const rngs = try parseLine(ln);
-        try std.testing.expect(rngs[0].overlaps(&rngs[1]));
+        try std.testing.expect(rngs[0].overlaps(rngs[1]));
     }
 
     for (no_overlap) |ln| {
         const rngs = try parseLine(ln);
-        try std.testing.expect(!rngs[0].overlaps(&rngs[1]));
+        try std.testing.expect(!rngs[0].overlaps(rngs[1]));
     }
 }
 
@@ -64,11 +64,11 @@ pub fn main() !void {
     for (ll.items()) |ln| {
         const ln_ranges = try parseLine(ln);
 
-        if (ln_ranges[0].contains(&ln_ranges[1]) or ln_ranges[1].contains(&ln_ranges[0])) {
+        if (ln_ranges[0].contains(ln_ranges[1]) or ln_ranges[1].contains(ln_ranges[0])) {
             contained += 1;
         }
 
-        if (ln_ranges[0].overlaps(&ln_ranges[1])) {
+        if (ln_ranges[0].overlaps(ln_ranges[1])) {
             overlaps += 1;
         }
     }

@@ -20,7 +20,14 @@ pub fn Range(comptime T: type) type {
 
         const Self = @This();
 
-        pub fn contains(self: *const Self, other: *const Self) bool {
+        pub fn fromUnsorted(a: T, b: T) Self {
+            return .{
+                .begin = @min(a, b),
+                .end = @max(a, b),
+            };
+        }
+
+        pub fn contains(self: *const Self, other: Self) bool {
             return self.begin <= other.begin and self.end >= other.end;
         }
 
@@ -28,9 +35,10 @@ pub fn Range(comptime T: type) type {
             return self.begin <= v and self.end >= v;
         }
 
-        pub fn overlaps(self: *const Self, other: *const Self) bool {
-            return self.contains(other) or (self.begin >= other.begin and self.begin <= other.end) //
-            or (self.end >= other.begin and self.end <= other.end);
+        pub fn overlaps(self: *const Self, other: Self) bool {
+            return self.contains(other) //
+            or between(T, self.begin, other.begin, other.end + 1) //
+            or between(T, self.end, other.begin, other.end + 1);
         }
     };
 }
@@ -128,6 +136,30 @@ test "combinations" {
 test "countNonzero" {
     const a = [_]i8{ 0, 1, -3, 0 };
     try std.testing.expectEqual(2, countNonzero(i8, &a));
+}
+
+fn transitiveOverlap(a: Range(u8), b: Range(u8)) !void {
+    try std.testing.expect(a.overlaps(b));
+    try std.testing.expect(b.overlaps(a));
+}
+
+test "Range" {
+    const a = Range(u8){ .begin = 0, .end = 10 };
+    const b = Range(u8){ .begin = 2, .end = 8 };
+    const c = Range(u8){ .begin = 1, .end = 2 };
+    const d = Range(u8){ .begin = 8, .end = 8 };
+
+    try std.testing.expect(a.contains(b));
+    try std.testing.expect(!b.contains(a));
+    try transitiveOverlap(a, b);
+
+    try std.testing.expect(a.overlaps(a));
+    try std.testing.expect(c.overlaps(c));
+    try std.testing.expect(d.overlaps(d));
+    try transitiveOverlap(a, c);
+    try transitiveOverlap(a, d);
+    try transitiveOverlap(b, c);
+    try transitiveOverlap(b, d);
 }
 
 test {

@@ -84,8 +84,9 @@ pub fn Grid(comptime T: type) type {
         }
 
         pub fn initFromVectors(
+            comptime VT: type,
             gpa: std.mem.Allocator,
-            vecs: []const vec.V2u,
+            vecs: []const vec.V2(VT),
             present: T,
             empty: T,
         ) !Self {
@@ -99,7 +100,7 @@ pub fn Grid(comptime T: type) type {
             var g = try Self.init(gpa, sy + 1, sx + 1);
             g.fill(empty);
             for (vecs) |v| {
-                g.atPtrV(v).* = present;
+                g.atPtrV(v.asType(usize)).* = present;
             }
             return g;
         }
