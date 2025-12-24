@@ -2,9 +2,8 @@ const std = @import("std");
 const zutils = @import("zutils");
 
 const Machine = struct {
-    lights: []u8 = undefined,
-    targetLights: []u8 = undefined,
-    wiring: [][]usize = undefined,
+    target: []u8 = undefined,
+    buttons: [][]usize = undefined,
     joltage: []usize = undefined,
 
     const Self = @This();
@@ -13,53 +12,87 @@ const Machine = struct {
         var m = Machine{};
 
         var iter = std.mem.splitScalar(u8, ln, ' ');
-        var wiring = std.array_list.Managed([]usize).init(gpa);
+        var buttons = std.array_list.Managed([]usize).init(gpa);
 
         while (iter.next()) |part| {
             const sp = part[1 .. part.len - 1];
             switch (part[0]) {
                 '[' => {
-                    m.targetLights = try gpa.alloc(u8, sp.len);
-                    m.lights = try gpa.alloc(u8, sp.len);
-                    std.mem.copyForwards(u8, m.targetLights, sp);
-                    for (m.lights) |*l| l.* = '.';
+                    m.target = try gpa.alloc(u8, sp.len);
+                    std.mem.copyForwards(u8, m.target, sp);
                 },
                 '{' => {
                     m.joltage = try zutils.str.parseInts(usize, gpa, sp, ',');
                 },
                 '(' => {
-                    const wl = try zutils.str.parseInts(usize, gpa, sp, ',');
-                    try wiring.append(wl);
+                    const bl = try zutils.str.parseInts(usize, gpa, sp, ',');
+                    try buttons.append(bl);
                 },
                 else => unreachable,
             }
         }
 
-        m.wiring = try wiring.toOwnedSlice();
+        m.buttons = try buttons.toOwnedSlice();
         return m;
     }
 
     pub fn print(self: *const Self) void {
-        std.debug.print("<Machine\n\tlights: [{s}]\n\ttarget: [{s}]\n\twiring: ", .{
-            self.lights,
-            self.targetLights,
-        });
+        std.debug.print("<Machine\n\ttarget: [{s}]\n\twiring: ", .{self.target});
 
-        for (self.wiring) |w| {
+        for (self.buttons) |w| {
             std.debug.print("{any} ", .{w});
         }
         std.debug.print("\n\tjoltage: {any}\n", .{self.joltage});
     }
 };
 
+fn press(gpa: std.mem.Allocator, state: []const u8, button: []usize) ![]u8 {
+    const newS = try gpa.alloc(u8, state.len);
+    std.mem.copyForwards(u8, newS, state);
+    for (button) |i| newS[i] = if (newS[i] == '#') '.' else '#';
+    return newS;
+}
+
+fn solveMachine(gpa: std.mem.Allocator, machine: *const Machine) !usize {
+    const max_states = std.math.pow(usize, 2, machine.target.len);
+    var states = std.StringArrayHashMap(usize).init(gpa);
+    try states.ensureTotalCapacity(max_states);
+
+    const starter = try gpa.alloc(u8, machine.target.len);
+    defer gpa.free(starter);
+    for (starter) |*c| c.* = '.';
+    states.putAssumeCapacity(starter, 1);
+
+    var i: usize = 0;
+    while (states.count() > 0) : (i += 1) {
+        if (states.get(machine.target) orelse 0 >= 1) return i;
+
+        var next = std.StringArrayHashMap(usize).init(gpa);
+        try next.ensureTotalCapacity(max_states);
+
+        var iter = states.iterator();
+        while (iter.next()) |s| {
+            for (machine.buttons) |b| {
+                const nS = try press(gpa, s.key_ptr.*, b);
+                const res = (try next.getOrPutValue(nS, 0));
+                res.value_ptr.* += 1;
+            }
+        }
+        states.deinit();
+        states = next;
+    }
+    return 0;
+}
+
 fn parse(gpa: std.mem.Allocator, input: []const u8) ![]Machine {
-    var machines = try gpa.alloc(Machine, std.mem.count(u8, input, &[1]u8{'\n'}) + 1);
+    var machines = std.array_list.Managed(Machine).init(gpa);
     var iter = std.mem.splitScalar(u8, input, '\n');
     var i: usize = 0;
     while (iter.next()) |ln| : (i += 1) {
-        machines[i] = try Machine.init(gpa, ln);
+        if (ln.len > 0)
+            try machines.append(try Machine.init(gpa, ln));
     }
-    return machines;
+    return try machines.toOwnedSlice();
 }
 
 fn solve(gpa: std.mem.Allocator, input: []const u8) ![2]usize {
@@ -67,12 +100,13 @@ fn solve(gpa: std.mem.Allocator, input: []const u8) ![2]usize {
     defer arena.deinit();
     const alloc = arena.allocator();
 
+    var p1: usize = 0;
     const machines = try parse(alloc, input);
-    std.debug.print("hey: {d}\n", .{machines.len});
     for (machines) |*m| {
-        m.print();
+        p1 += try solveMachine(alloc, m);
     }
-    return .{ 0, 0 };
+
+    return .{ p1, 0 };
 }
 
 test "example" {
@@ -84,6 +118,13 @@ test "example" {
 
     const res = try solve(std.testing.allocator, input);
 
-    try std.testing.expectEqual(0, res[0]);
+    try std.testing.expectEqual(7, res[0]);
     try std.testing.expectEqual(0, res[1]);
+}
+
+pub fn main() !void {
+    const input = try zutils.fs.readFile(std.heap.page_allocator, //
+        "~/sync/dev/aoc_inputs/2025/10.txt");
+    const res = try solve(std.heap.page_allocator, input);
+    std.debug.print("p1: {d}\np2: {d}\n", .{ res[0], res[1] });
 }
