@@ -46,14 +46,14 @@ const Machine = struct {
     }
 };
 
-fn press(gpa: std.mem.Allocator, state: []const u8, button: []usize) ![]u8 {
+fn pressLights(gpa: std.mem.Allocator, state: []const u8, button: []const usize) ![]u8 {
     const newS = try gpa.alloc(u8, state.len);
     std.mem.copyForwards(u8, newS, state);
     for (button) |i| newS[i] = if (newS[i] == '#') '.' else '#';
     return newS;
 }
 
-fn solveMachine(gpa: std.mem.Allocator, machine: *const Machine) !usize {
+fn solveLights(gpa: std.mem.Allocator, machine: *const Machine) !usize {
     const max_states = std.math.pow(usize, 2, machine.target.len);
     var states = std.StringArrayHashMap(usize).init(gpa);
     try states.ensureTotalCapacity(max_states);
@@ -73,7 +73,7 @@ fn solveMachine(gpa: std.mem.Allocator, machine: *const Machine) !usize {
         var iter = states.iterator();
         while (iter.next()) |s| {
             for (machine.buttons) |b| {
-                const nS = try press(gpa, s.key_ptr.*, b);
+                const nS = try pressLights(gpa, s.key_ptr.*, b);
                 const res = (try next.getOrPutValue(nS, 0));
                 res.value_ptr.* += 1;
             }
@@ -82,6 +82,10 @@ fn solveMachine(gpa: std.mem.Allocator, machine: *const Machine) !usize {
         states = next;
     }
     return 0;
+}
+
+fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) usize {
+    const A =
 }
 
 fn parse(gpa: std.mem.Allocator, input: []const u8) ![]Machine {
@@ -101,12 +105,14 @@ fn solve(gpa: std.mem.Allocator, input: []const u8) ![2]usize {
     const alloc = arena.allocator();
 
     var p1: usize = 0;
+    var p2: usize = 0;
     const machines = try parse(alloc, input);
     for (machines) |*m| {
-        p1 += try solveMachine(alloc, m);
+        p1 += try solveLights(alloc, m);
+        p2 += solveJolts(m);
     }
 
-    return .{ p1, 0 };
+    return .{ p1, p2 };
 }
 
 test "example" {
@@ -119,7 +125,7 @@ test "example" {
     const res = try solve(std.testing.allocator, input);
 
     try std.testing.expectEqual(7, res[0]);
-    try std.testing.expectEqual(0, res[1]);
+    try std.testing.expectEqual(33, res[1]);
 }
 
 pub fn main() !void {
