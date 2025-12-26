@@ -11,23 +11,9 @@ pub fn MatrixCf(comptime M: usize, comptime N: usize) type {
     return MatrixC(isize, M, N);
 }
 
-fn matAt(comptime T: type, data: []const T, N: usize, r: usize, c: usize) T {
-    return data[r * N + c];
-}
-
-fn matAtPtr(comptime T: type, data: []T, N: usize, r: usize, c: usize) *T {
-    return &data[r * N + c];
-}
-
-fn matRow(comptime T: type, data: []T, M: usize, N: usize, r: usize) []T {
-    std.debug.assert(r < M);
-    const st = r * N;
-    return data[st .. st + N];
-}
-
-fn matApproxEql(comptime T: type, data: []const T, other: []const T, atol: T, rtol: T) bool {
-    for (data, 0..) |sx, i| {
-        const ox = other[i];
+fn matApproxEql(comptime T: type, a: anytype, b: anytype, atol: T, rtol: T) bool {
+    for (a.data, 0..) |sx, i| {
+        const ox = b.data[i];
 
         if (@abs(ox - sx) > atol + rtol * @abs(ox))
             return false;
@@ -35,32 +21,32 @@ fn matApproxEql(comptime T: type, data: []const T, other: []const T, atol: T, rt
     return true;
 }
 
-fn matPrint(comptime T: type, data: []const T, M: usize, N: usize) void {
-    std.debug.print("<Matrix({s}) {d}x{d}\n", .{ @typeName(T), M, N });
+fn matPrint(comptime T: type, mat: anytype) void {
+    std.debug.print("<Matrix({s}) {d}x{d}\n", .{ @typeName(T), mat.m(), mat.n() });
 
-    for (0..M) |r| {
-        std.debug.print("  {any}\n", .{data[r * N .. (r + 1) * N]});
+    for (0..mat.m()) |r| {
+        std.debug.print("  {any}\n", .{mat.data[r * mat.n() .. (r + 1) * mat.n()]});
     }
     std.debug.print(">\n", .{});
 }
 
-fn swapRow(comptime T: type, data: []T, M: usize, N: usize, a: usize, b: usize) void {
-    std.debug.assert(a >= 0 and a < M and b >= 0 and b < M);
-    for (0..N) |c| {
-        const tmp = matAt(T, data, N, a, c);
-        const bp = matAtPtr(T, data, N, b, c);
-        matAtPtr(T, data, N, a, c).* = bp.*;
+fn swapRow(mat: anytype, a: usize, b: usize) void {
+    std.debug.assert(a >= 0 and a < mat.m() and b >= 0 and b < mat.m());
+    for (0..mat.n()) |c| {
+        const tmp = mat.at(a, c);
+        const bp = mat.atPtr(b, c);
+        mat.atPtr(a, c).* = bp.*;
         bp.* = tmp;
     }
 }
 
 /// Find a pivot in an assumed upper triangular (or close) matrix starting from
 /// position startPos
-fn findPivot(comptime T: type, data: []const T, M: usize, N: usize, startRow: usize) ?[2]usize {
+fn findPivot(mat: anytype, startRow: usize) ?[2]usize {
     var pCol: usize = 0;
-    while (pCol < N) : (pCol += 1) {
-        for (startRow..M) |ri| {
-            if (matAt(T, data, N, ri, pCol) != 0) {
+    while (pCol < mat.n()) : (pCol += 1) {
+        for (startRow..mat.m()) |ri| {
+            if (mat.at(ri, pCol) != 0) {
                 return .{ ri, pCol };
             }
         }
@@ -68,31 +54,37 @@ fn findPivot(comptime T: type, data: []const T, M: usize, N: usize, startRow: us
     return null;
 }
 
-fn matReduceU(comptime T: type, data: []T, M: usize, N: usize) void {
+fn matRank(mat: anytype) usize {
+    var pRow: usize = 0;
+    while (findPivot(mat, pRow) != null) : (pRow += 1) {}
+    return pRow;
+}
+
+fn matReduceU(comptime T: type, mat: anytype) void {
     var finishedRows: usize = 0;
-    while (findPivot(T, data, M, N, finishedRows)) |ret| {
+    while (findPivot(mat, finishedRows)) |ret| {
         var pRow = ret[0];
         const pCol = ret[1];
 
         // ensure pivot is in correct row
         if (pRow != pCol) {
-            swapRow(T, data, M, N, pRow, finishedRows);
+            swapRow(mat, pRow, finishedRows);
             pRow = finishedRows;
         }
 
         // reduce down
-        const pivot = matAt(T, data, N, pRow, pCol);
+        const pivot = mat.at(pRow, pCol);
         std.debug.assert(pivot != 0);
-        for (pRow + 1..M) |ri| {
-            const tmp = matAt(T, data, N, ri, pCol);
+        for (pRow + 1..mat.m()) |ri| {
+            const tmp = mat.at(ri, pCol);
             const factor = switch (@typeInfo(T)) {
                 .int => @divTrunc(tmp, pivot),
                 else => tmp / pivot,
             };
 
-            for (0..N) |ci| {
-                matAtPtr(T, data, N, ri, ci).* = matAt(T, data, N, ri, ci) //
-                    - matAt(T, data, N, pRow, ci) * factor;
+            for (0..mat.n()) |ci| {
+                mat.atPtr(ri, ci).* = mat.at(ri, ci) //
+                    - mat.at(pRow, ci) * factor;
             }
         }
 
@@ -100,15 +92,15 @@ fn matReduceU(comptime T: type, data: []T, M: usize, N: usize) void {
     }
 }
 
-fn matReduceRref(comptime T: type, data: []T, M: usize, N: usize) void {
+fn matReduceRref(comptime T: type, mat: anytype) void {
     var finishedRows: usize = 0;
-    while (findPivot(T, data, M, N, finishedRows)) |ret| {
+    while (findPivot(mat, finishedRows)) |ret| {
         const pRow = ret[0];
         const pCol = ret[1];
 
         // normalize pivot
-        const pivot = matAt(T, data, N, pRow, pCol);
-        for (matRow(T, data, M, N, pRow)) |*x| {
+        const pivot = mat.at(pRow, pCol);
+        for (mat.row(pRow)) |*x| {
             x.* = switch (@typeInfo(T)) {
                 .int => @divTrunc(x.*, pivot),
                 else => x.* / pivot,
@@ -120,10 +112,10 @@ fn matReduceRref(comptime T: type, data: []T, M: usize, N: usize) void {
         while (opRow > 0) : (opRow -= 1) {
             const ri = opRow - 1;
             // pivot is now 1, factor is just the value at that location
-            const factor = matAt(T, data, N, ri, pCol);
-            for (0..N) |ci| {
-                matAtPtr(T, data, N, ri, ci).* = matAt(T, data, N, ri, ci) //
-                    - matAt(T, data, N, pRow, ci) * factor;
+            const factor = mat.at(ri, pCol);
+            for (0..mat.n()) |ci| {
+                mat.atPtr(ri, ci).* = mat.at(ri, ci) //
+                    - mat.at(pRow, ci) * factor;
             }
         }
 
@@ -131,36 +123,91 @@ fn matReduceRref(comptime T: type, data: []T, M: usize, N: usize) void {
     }
 }
 
-/// Solve matrix assuming already in rref
-fn matSolve(comptime T: type, data: []T, M: usize, N: usize, soln: []T) bool {
+fn SolutionIO(comptime T: type) type {
+    return struct {
+        xp: []T,
+        Ns: *Matrix(T),
+        colTypes: []ColType,
+    };
+}
+
+/// Solve matrix assuming already in rref and of augmented form [R | d] from Rx = d
+fn matSolve(comptime T: type, mat: anytype, sio: SolutionIO(T)) bool {
     // check for no solutions
-    outer: for (0..M) |r| {
-        for (0..N - 1) |c| {
-            if (matAt(T, data, N, r, c) != 0) continue :outer;
+    outer: for (0..mat.m()) |r| {
+        for (0..mat.n() - 1) |c| {
+            if (mat.at(r, c) != 0) continue :outer;
         }
         // row is all zero, check for contradiction
-        if (matAt(T, data, N, r, N - 1) != 0) return false;
+        if (mat.at(r, mat.n() - 1) != 0) return false;
     }
 
-    for (soln) |*x| x.* = 0;
+    for (sio.xp) |*x| x.* = 0;
+    for (sio.colTypes) |*c| c.* = .free;
 
     var pRow: usize = 0;
-    while (findPivot(T, data, M, N, pRow)) |ret| {
+    while (findPivot(mat, pRow)) |ret| : (pRow += 1) {
         pRow = ret[0];
         const pCol = ret[1];
 
-        soln[pCol] = matAt(T, data, N, pRow, N - 1);
-        pRow += 1;
+        // update particular solution
+        sio.xp[pCol] = mat.at(pRow, mat.n() - 1);
+        sio.colTypes[pCol] = .pivot;
+    }
+
+    // initialize the rows for free variables
+    var fi: usize = 0;
+    for (sio.colTypes, 0..) |c, ci| {
+        if (c == .free) {
+            sio.Ns.atPtr(ci, fi).* = 1;
+            fi += 1;
+        }
+    }
+
+    // fill the remaining rows with the values from non-pivot columns of pivot rows
+    pRow = 0;
+    fi = 0;
+    while (findPivot(mat, pRow)) |ret| : (pRow += 1) {
+        pRow = ret[0];
+        // determine the correct row for the Ns values
+        for (sio.colTypes[fi..]) |c| {
+            if (c == .pivot) break;
+            fi += 1;
+        }
+
+        // for each pivot row, assemble a row of Ns out of the non-pivot column values
+        var i: usize = 0;
+        for (sio.colTypes, 0..) |c, ci| {
+            if (c == .pivot) continue;
+            sio.Ns.atPtr(fi, i).* = -mat.at(pRow, ci);
+            i += 1;
+        }
+        // advance past the row in Ns we just handled
+        fi += 1;
     }
 
     return true;
 }
+
+pub const ColType = enum {
+    pivot,
+    free,
+};
 
 pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
     return struct {
         data: [M * N]T = undefined,
 
         const Self = @This();
+        pub const SolutionT = struct {
+            xp: [N - 1]T,
+            Ns: Matrix(T),
+            cols: [N - 1]ColType,
+
+            pub fn deinit(self: *const @This()) void {
+                self.Ns.deinit();
+            }
+        };
 
         pub fn zeros() Self {
             var res = Self{};
@@ -176,31 +223,53 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
             return res;
         }
 
+        pub fn m(_: *const Self) usize {
+            return M;
+        }
+
+        pub fn n(_: *const Self) usize {
+            return N;
+        }
+
         pub fn at(self: *const Self, r: usize, c: usize) T {
-            return matAt(T, &self.data, N, r, c);
+            return self.data[r * N + c];
         }
 
         pub fn atPtr(self: *Self, r: usize, c: usize) *T {
-            return matAtPtr(T, &self.data, N, r, c);
+            return &self.data[r * N + c];
         }
 
         pub fn row(self: *Self, r: usize) []T {
-            return matRow(T, &self.data, M, N, r);
+            std.debug.assert(r < M);
+            const st = r * N;
+            return self.data[st .. st + N];
         }
 
         pub fn rref(self: *const Self) Self {
             var new = Self{};
             std.mem.copyForwards(T, &new.data, &self.data);
-            matReduceU(T, &new.data, M, N);
-            matReduceRref(T, &new.data, M, N);
+            matReduceU(T, &new);
+            matReduceRref(T, &new);
             return new;
         }
 
         /// Solve for the simplest solution to the system if one exists
-        pub fn solve(self: *const Self) ?[N - 1]T {
-            var R = self.rref();
-            var soln: [N - 1]T = undefined;
-            if (!matSolve(T, &R.data, M, N, &soln)) {
+        pub fn solve(self: *const Self, gpa: std.mem.Allocator) !?SolutionT {
+            const R = self.rref();
+            const rank = matRank(R);
+            // N-1 because we assume augmented matrix form
+            const nFree = N - 1 - rank;
+            var soln = SolutionT{
+                .Ns = try Matrix(T).zeros(gpa, N - 1, nFree),
+                .xp = undefined,
+                .cols = undefined,
+            };
+            if (!matSolve(T, R, .{
+                .Ns = &soln.Ns,
+                .xp = &soln.xp,
+                .colTypes = &soln.cols,
+            })) {
+                defer soln.deinit();
                 return null;
             }
             return soln;
@@ -215,7 +284,7 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
         }
 
         pub fn approxEql(self: *const Self, other: *const Self, atol: T, rtol: T) bool {
-            return matApproxEql(T, &self.data, &other.data, atol, rtol);
+            return matApproxEql(T, self, other, atol, rtol);
         }
     };
 }
@@ -228,6 +297,18 @@ pub fn Matrix(comptime T: type) type {
         gpa: std.mem.Allocator,
 
         const Self = @This();
+        pub const SolutionT = struct {
+            xp: []T,
+            Ns: Matrix(T),
+            cols: []ColType,
+            gpa: std.mem.Allocator,
+
+            pub fn deinit(self: *const @This()) void {
+                self.gpa.free(self.xp);
+                self.gpa.free(self.cols);
+                self.Ns.deinit();
+            }
+        };
 
         pub fn init(gpa: std.mem.Allocator, M: usize, N: usize) !Self {
             return .{
@@ -263,41 +344,62 @@ pub fn Matrix(comptime T: type) type {
             return res;
         }
 
+        pub fn m(self: *const Self) usize {
+            return self.M;
+        }
+
+        pub fn n(self: *const Self) usize {
+            return self.N;
+        }
+
         pub fn at(self: *const Self, r: usize, c: usize) T {
-            return matAt(T, self.data, self.N, r, c);
+            return self.data[r * self.N + c];
         }
 
         pub fn atPtr(self: *Self, r: usize, c: usize) *T {
-            return matAtPtr(T, self.data, self.N, r, c);
+            return &self.data[r * self.N + c];
         }
 
         pub fn row(self: *Self, r: usize) []T {
-            return matRow(T, self.data, self.M, self.N, r);
+            std.debug.assert(r < self.M);
+            const st = r * self.N;
+            return self.data[st .. st + self.N];
         }
 
         pub fn rref(self: *const Self) !Self {
-            const new = try Self.init(self.gpa, self.M, self.N);
+            var new = try Self.init(self.gpa, self.M, self.N);
             std.mem.copyForwards(T, new.data, self.data);
-            matReduceU(T, new.data, self.M, self.N);
-            matReduceRref(T, new.data, self.M, self.N);
+            matReduceU(T, &new);
+            matReduceRref(T, &new);
             return new;
         }
 
         /// Solve for the simplest solution to the system if one exists
-        pub fn solve(self: *const Self) !?[]T {
+        pub fn solve(self: *const Self) !?SolutionT {
             const R = try self.rref();
             defer R.deinit();
-
-            const soln = try self.gpa.alloc(T, self.N - 1);
-            if (!matSolve(T, R.data, self.M, self.N, soln)) {
-                self.gpa.free(soln);
+            const rank = matRank(R);
+            // N-1 because we assume augmented matrix form
+            const nFree = self.N - 1 - rank;
+            var soln = SolutionT{
+                .Ns = try Matrix(T).zeros(self.gpa, self.N - 1, nFree),
+                .xp = try self.gpa.alloc(T, self.N - 1),
+                .cols = try self.gpa.alloc(ColType, self.N - 1),
+                .gpa = self.gpa,
+            };
+            if (!matSolve(T, R, .{
+                .xp = soln.xp,
+                .Ns = &soln.Ns,
+                .colTypes = soln.cols,
+            })) {
+                soln.deinit();
                 return null;
             }
             return soln;
         }
 
         pub fn print(self: *const Self) void {
-            matPrint(T, self.data, self.M, self.N);
+            matPrint(T, self);
         }
 
         pub fn eql(self: *const Self, other: *const Self) bool {
@@ -310,7 +412,7 @@ pub fn Matrix(comptime T: type) type {
     };
 }
 
-test "MatrixX.test" {
+test "Matrix.basic" {
     const M = try MatrixXi.fromSlice(std.testing.allocator, 3, &[_]isize{
         1, 3, 3, 2, //
         2, 6, 9, 7, //
@@ -320,9 +422,9 @@ test "MatrixX.test" {
     const R = try M.rref();
     defer R.deinit();
     const exp = try MatrixXi.fromSlice(std.testing.allocator, 3, &[_]isize{
-        1, 3, 0, -1, //
-        0, 0, 1, 1, //
-        0, 0, 0, 0, //
+        1, 3, 0, -1,
+        0, 0, 1, 1,
+        0, 0, 0, 0,
     });
     defer exp.deinit();
     try std.testing.expect(R.eql(&exp));
@@ -330,12 +432,35 @@ test "MatrixX.test" {
     const M2 = try MatrixXi.eye(std.testing.allocator, 2, 2);
     defer M2.deinit();
     const exp2 = try MatrixXi.fromSlice(std.testing.allocator, 2, &[_]isize{
-        1, 0, //
-        0, 1, //
+        1, 0,
+        0, 1,
     });
     defer exp2.deinit();
 
     try std.testing.expect(M2.eql(&exp2));
+}
+
+test "Matrix.solve" {
+    const M = try MatrixXi.fromSlice(std.testing.allocator, 3, &[_]isize{
+        1,  3,  3, 2, 1,
+        2,  6,  9, 7, 5,
+        -1, -3, 3, 4, 5,
+    });
+    defer M.deinit();
+    const res = (try M.solve()).?;
+    defer res.deinit();
+    try std.testing.expectEqualSlices(isize, &.{
+        -2,
+        0,
+        1,
+        0,
+    }, res.xp);
+    try std.testing.expectEqualSlices(isize, &.{
+        -3, 1,
+        1,  0,
+        0,  -1,
+        0,  1,
+    }, res.Ns.data);
 }
 
 test "Mat.rref" {
@@ -397,7 +522,20 @@ test "Mat.solve" {
             -1, -3, 3, 4, 5,
         },
     };
-    try std.testing.expectEqualSlices(isize, &.{ -2, 0, 1, 0 }, &M.solve().?);
+    const res = (try M.solve(std.testing.allocator)).?;
+    defer res.deinit();
+    try std.testing.expectEqualSlices(isize, &.{
+        -2,
+        0,
+        1,
+        0,
+    }, &res.xp);
+    try std.testing.expectEqualSlices(isize, &.{
+        -3, 1,
+        1,  0,
+        0,  -1,
+        0,  1,
+    }, res.Ns.data);
 
     const M2 = MatrixCi(3, 5){
         .data = .{
@@ -406,7 +544,20 @@ test "Mat.solve" {
             3, 6, 7, 13, -6,
         },
     };
-    try std.testing.expectEqualSlices(isize, &.{ -9, 0, 3, 0 }, &M2.solve().?);
+    const res2 = (try M2.solve(std.testing.allocator)).?;
+    defer res2.deinit();
+    try std.testing.expectEqualSlices(isize, &.{
+        -9,
+        0,
+        3,
+        0,
+    }, &res2.xp);
+    try std.testing.expectEqualSlices(isize, &.{
+        -2, -2,
+        1,  0,
+        0,  -1,
+        0,  1,
+    }, res2.Ns.data);
 }
 
 test "eye" {
