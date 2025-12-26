@@ -84,8 +84,27 @@ fn solveLights(gpa: std.mem.Allocator, machine: *const Machine) !usize {
     return 0;
 }
 
-fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) usize {
-    const A =
+fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) !usize {
+    const M = machine.joltage.len;
+    const N = machine.buttons.len + 1;
+
+    // buttons define where ones live
+    var mat = try zutils.mat.MatrixXi.zeros(gpa, M, N);
+    for (machine.buttons, 0..) |b, ci| {
+        for (b) |ri| {
+            mat.atPtr(ri, ci).* = 1;
+        }
+    }
+
+    // joltage becomes b column
+    for (machine.joltage, 0..) |j, ri| {
+        mat.atPtr(ri, N - 1).* = @intCast(j);
+    }
+
+    mat.print();
+    const res = (try mat.solve()).?;
+    std.debug.print("huh: {any}\n", .{res});
+    return @intCast(zutils.sum(isize, res));
 }
 
 fn parse(gpa: std.mem.Allocator, input: []const u8) ![]Machine {
@@ -109,7 +128,7 @@ fn solve(gpa: std.mem.Allocator, input: []const u8) ![2]usize {
     const machines = try parse(alloc, input);
     for (machines) |*m| {
         p1 += try solveLights(alloc, m);
-        p2 += solveJolts(m);
+        p2 += try solveJolts(alloc, m);
     }
 
     return .{ p1, p2 };

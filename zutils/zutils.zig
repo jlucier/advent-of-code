@@ -3,6 +3,7 @@ const std = @import("std");
 pub const fs = @import("fs.zig");
 pub const fmt = @import("fmt.zig");
 pub const vec = @import("vec.zig");
+pub const mat = @import("mat.zig");
 pub const grid = @import("grid.zig");
 pub const graph = @import("graph.zig");
 pub const str = @import("str.zig");
