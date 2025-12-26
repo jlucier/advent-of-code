@@ -103,7 +103,7 @@ fn matReduceU(comptime T: type, data: []T, M: usize, N: usize) void {
 fn matReduceRref(comptime T: type, data: []T, M: usize, N: usize) void {
     var finishedRows: usize = 0;
     while (findPivot(T, data, M, N, finishedRows)) |ret| {
-        var pRow = ret[0];
+        const pRow = ret[0];
         const pCol = ret[1];
 
         // normalize pivot
@@ -116,8 +116,9 @@ fn matReduceRref(comptime T: type, data: []T, M: usize, N: usize) void {
         }
 
         // reduce up
-        while (pRow > 0) : (pRow -= 1) {
-            const ri = pRow - 1;
+        var opRow = pRow;
+        while (opRow > 0) : (opRow -= 1) {
+            const ri = opRow - 1;
             // pivot is now 1, factor is just the value at that location
             const factor = matAt(T, data, N, ri, pCol);
             for (0..N) |ci| {
@@ -206,7 +207,7 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
         }
 
         pub fn print(self: *const Self) void {
-            matPrint(T, self.data, M, N);
+            matPrint(T, &self.data, M, N);
         }
 
         pub fn eql(self: *const Self, other: *const Self) bool {
@@ -340,47 +341,50 @@ test "MatrixX.test" {
 test "Mat.rref" {
     const M = MatrixCi(3, 4){
         .data = .{
-            1, 3, 3, 2, //
-            2, 6, 9, 7, //
-            -1, -3, 3, 4, //
+            1,  3,  3, 2,
+            2,  6,  9, 7,
+            -1, -3, 3, 4,
         },
     };
     try std.testing.expect(M.rref().eql(&MatrixCi(3, 4){
         .data = .{
-            1, 3, 0, -1, //
-            0, 0, 1, 1, //
-            0, 0, 0, 0, //
+            1, 3, 0, -1,
+            0, 0, 1, 1,
+            0, 0, 0, 0,
         },
     }));
 
     const M2 = MatrixCi(3, 3){
         .data = .{
-            2, 1, 1, //
-            4, -6, 0, //
-            -2, 7, 2, //
+            2,  1,  1,
+            4,  -6, 0,
+            -2, 7,  2,
         },
     };
     try std.testing.expect(M2.rref().eql(&MatrixCi(3, 3){
         .data = .{
-            1, 0, 0, //
-            0, 1, 0, //
-            0, 0, 1, //
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1,
         },
     }));
 
-    // same as first with extra col
-    const M3 = MatrixCi(3, 5){
+    const M3 = MatrixCi(5, 6){
         .data = .{
-            1, 3, 3, 2, 1, //
-            2, 6, 9, 7, 5, //
-            -1, -3, 3, 4, 5, //
+            1, 0, 1, 1, 0, 7,
+            0, 0, 0, 1, 1, 5,
+            1, 1, 0, 1, 1, 12,
+            1, 1, 0, 0, 1, 7,
+            1, 0, 1, 0, 1, 2,
         },
     };
-    try std.testing.expect(M3.rref().eql(&MatrixCi(3, 5){
+    try std.testing.expect(M3.rref().eql(&MatrixCi(5, 6){
         .data = .{
-            1, 3, 0, -1, -2, //
-            0, 0, 1, 1, 1, //
-            0, 0, 0, 0, 0, //
+            1, 0, 1,  0, 0, 2,
+            0, 1, -1, 0, 0, 5,
+            0, 0, 0,  1, 0, 5,
+            0, 0, 0,  0, 1, 0,
+            0, 0, 0,  0, 0, 0,
         },
     }));
 }
@@ -388,18 +392,18 @@ test "Mat.rref" {
 test "Mat.solve" {
     const M = MatrixCi(3, 5){
         .data = .{
-            1, 3, 3, 2, 1, //
-            2, 6, 9, 7, 5, //
-            -1, -3, 3, 4, 5, //
+            1,  3,  3, 2, 1,
+            2,  6,  9, 7, 5,
+            -1, -3, 3, 4, 5,
         },
     };
     try std.testing.expectEqualSlices(isize, &.{ -2, 0, 1, 0 }, &M.solve().?);
 
     const M2 = MatrixCi(3, 5){
         .data = .{
-            1, 2, 3, 5, 0, //
-            2, 4, 8, 12, 6, //
-            3, 6, 7, 13, -6, //
+            1, 2, 3, 5,  0,
+            2, 4, 8, 12, 6,
+            3, 6, 7, 13, -6,
         },
     };
     try std.testing.expectEqualSlices(isize, &.{ -9, 0, 3, 0 }, &M2.solve().?);
@@ -408,9 +412,9 @@ test "Mat.solve" {
 test "eye" {
     try std.testing.expect(MatrixCi(3, 4).eye().eql(&MatrixCi(3, 4){
         .data = .{
-            1, 0, 0, 0, //
-            0, 1, 0, 0, //
-            0, 0, 1, 0, //
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
         },
     }));
 }
