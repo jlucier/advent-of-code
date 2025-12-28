@@ -78,7 +78,7 @@ fn matReduceU(comptime T: type, mat: anytype) void {
         for (pRow + 1..mat.m()) |ri| {
             const tmp = mat.at(ri, pCol);
             const factor = switch (@typeInfo(T)) {
-                .int => @divTrunc(tmp, pivot),
+                .int => @divExact(tmp, pivot),
                 else => tmp / pivot,
             };
 
@@ -102,7 +102,7 @@ fn matReduceRref(comptime T: type, mat: anytype) void {
         const pivot = mat.at(pRow, pCol);
         for (mat.row(pRow)) |*x| {
             x.* = switch (@typeInfo(T)) {
-                .int => @divTrunc(x.*, pivot),
+                .int => @divExact(x.*, pivot),
                 else => x.* / pivot,
             };
         }
@@ -154,13 +154,11 @@ fn matSolve(comptime T: type, mat: anytype, sio: SolutionIO(T)) bool {
         sio.xp[pCol] = mat.at(pRow, mat.n() - 1);
         sio.colTypes[pCol] = .pivot;
     }
-    std.debug.print("{any} - {d}\n", .{ sio.colTypes, pRow });
 
     // initialize the rows for free variables
     var fi: usize = 0;
     for (sio.colTypes, 0..) |c, ci| {
         if (c == .free) {
-            std.debug.print("{d},{d} vs {d}x{d}\n", .{ ci, fi, sio.Ns.M, sio.Ns.N });
             sio.Ns.atPtr(ci, fi).* = 1;
             fi += 1;
         }
@@ -635,19 +633,4 @@ test "Mat.det" {
     };
 
     try std.testing.expectApproxEqAbs(-48, M.det(), 1e-5);
-}
-
-test "Mat.rrefbug" {
-    const M = MatrixCi(10, 13){ .data = .{
-        0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 52,
-        0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 67,
-        0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 66,
-        1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 109,
-        0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 49,
-        0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 65,
-        1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 70,
-        0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 66,
-        0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 33,
-        0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 72,
-    } };
 }
