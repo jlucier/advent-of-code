@@ -90,6 +90,7 @@ fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) !usize {
 
     // buttons define where ones live
     var mat = try zutils.mat.MatrixXi.zeros(gpa, M, N);
+    defer mat.deinit();
     for (machine.buttons, 0..) |b, ci| {
         for (b) |ri| {
             mat.atPtr(ri, ci).* = 1;
@@ -103,8 +104,10 @@ fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) !usize {
 
     mat.print();
     const res = (try mat.solve()).?;
-    std.debug.print("huh: {any}\n", .{res});
-    return @intCast(zutils.sum(isize, res));
+    defer res.deinit();
+    std.debug.print("huh: {any} => {d}\n", .{ res.xp, zutils.sum(isize, res.xp) });
+    res.Ns.print();
+    return @intCast(zutils.sum(isize, res.xp));
 }
 
 fn parse(gpa: std.mem.Allocator, input: []const u8) ![]Machine {

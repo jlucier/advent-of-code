@@ -8,7 +8,7 @@ pub fn MatrixCi(comptime M: usize, comptime N: usize) type {
 }
 
 pub fn MatrixCf(comptime M: usize, comptime N: usize) type {
-    return MatrixC(isize, M, N);
+    return MatrixC(f64, M, N);
 }
 
 fn matApproxEql(comptime T: type, a: anytype, b: anytype, atol: T, rtol: T) bool {
@@ -154,11 +154,13 @@ fn matSolve(comptime T: type, mat: anytype, sio: SolutionIO(T)) bool {
         sio.xp[pCol] = mat.at(pRow, mat.n() - 1);
         sio.colTypes[pCol] = .pivot;
     }
+    std.debug.print("{any} - {d}\n", .{ sio.colTypes, pRow });
 
     // initialize the rows for free variables
     var fi: usize = 0;
     for (sio.colTypes, 0..) |c, ci| {
         if (c == .free) {
+            std.debug.print("{d},{d} vs {d}x{d}\n", .{ ci, fi, sio.Ns.M, sio.Ns.N });
             sio.Ns.atPtr(ci, fi).* = 1;
             fi += 1;
         }
@@ -232,10 +234,14 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
         }
 
         pub fn at(self: *const Self, r: usize, c: usize) T {
+            std.debug.assert(r < M and r >= 0);
+            std.debug.assert(c < N and c >= 0);
             return self.data[r * N + c];
         }
 
         pub fn atPtr(self: *Self, r: usize, c: usize) *T {
+            std.debug.assert(r < M and r >= 0);
+            std.debug.assert(c < N and c >= 0);
             return &self.data[r * N + c];
         }
 
@@ -251,6 +257,18 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
             matReduceU(T, &new);
             matReduceRref(T, &new);
             return new;
+        }
+
+        pub fn det(self: *const Self) T {
+            std.debug.assert(M == N);
+            var new = Self{};
+            std.mem.copyForwards(T, &new.data, &self.data);
+            matReduceU(T, &new);
+            var ret: T = 1;
+            for (0..M) |i| {
+                ret *= new.at(i, i);
+            }
+            return ret;
         }
 
         /// Solve for the simplest solution to the system if one exists
@@ -276,7 +294,7 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
         }
 
         pub fn print(self: *const Self) void {
-            matPrint(T, &self.data, M, N);
+            matPrint(T, self);
         }
 
         pub fn eql(self: *const Self, other: *const Self) bool {
@@ -353,10 +371,14 @@ pub fn Matrix(comptime T: type) type {
         }
 
         pub fn at(self: *const Self, r: usize, c: usize) T {
+            std.debug.assert(r < self.M and r >= 0);
+            std.debug.assert(c < self.N and c >= 0);
             return self.data[r * self.N + c];
         }
 
         pub fn atPtr(self: *Self, r: usize, c: usize) *T {
+            std.debug.assert(r < self.M and r >= 0);
+            std.debug.assert(c < self.N and c >= 0);
             return &self.data[r * self.N + c];
         }
 
@@ -372,6 +394,18 @@ pub fn Matrix(comptime T: type) type {
             matReduceU(T, &new);
             matReduceRref(T, &new);
             return new;
+        }
+
+        pub fn det(self: *const Self) !T {
+            std.debug.assert(self.M == self.N);
+            var new = try Self.init(self.gpa, self.M, self.N);
+            std.mem.copyForwards(T, new.data, self.data);
+            matReduceU(T, &new);
+            const ret: T = 1;
+            for (0..self.M) |i| {
+                ret *= new.at(i);
+            }
+            return ret;
         }
 
         /// Solve for the simplest solution to the system if one exists
@@ -568,4 +602,52 @@ test "eye" {
             0, 0, 1, 0,
         },
     }));
+}
+
+test "Mat.solveNs" {
+    const M = MatrixCi(5, 6){
+        .data = .{
+            1, 0, 1, 1, 0, 7,
+            0, 0, 0, 1, 1, 5,
+            1, 1, 0, 1, 1, 12,
+            1, 1, 0, 0, 1, 7,
+            1, 0, 1, 0, 1, 2,
+        },
+    };
+    const res = (try M.solve(std.testing.allocator)).?;
+    defer res.deinit();
+    try std.testing.expectEqualSlices(isize, &.{
+        -1,
+        1,
+        1,
+        0,
+        0,
+    }, res.Ns.data);
+}
+
+test "Mat.det" {
+    const M = MatrixCf(3, 3){
+        .data = .{
+            1,  2, 3,
+            -4, 5, 6,
+            7,  8, 9,
+        },
+    };
+
+    try std.testing.expectApproxEqAbs(-48, M.det(), 1e-5);
+}
+
+test "Mat.rrefbug" {
+    const M = MatrixCi(10, 13){ .data = .{
+        0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 52,
+        0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 67,
+        0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 66,
+        1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 109,
+        0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 49,
+        0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 65,
+        1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 1, 1, 70,
+        0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 66,
+        0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 33,
+        0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 72,
+    } };
 }
