@@ -89,7 +89,7 @@ fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) !usize {
     const N = machine.buttons.len + 1;
 
     // buttons define where ones live
-    var mat = try zutils.mat.MatrixXi.zeros(gpa, M, N);
+    var mat = try zutils.mat.MatrixXf.zeros(gpa, M, N);
     defer mat.deinit();
     for (machine.buttons, 0..) |b, ci| {
         for (b) |ri| {
@@ -99,15 +99,24 @@ fn solveJolts(gpa: std.mem.Allocator, machine: *const Machine) !usize {
 
     // joltage becomes b column
     for (machine.joltage, 0..) |j, ri| {
-        mat.atPtr(ri, N - 1).* = @intCast(j);
+        mat.atPtr(ri, N - 1).* = @floatFromInt(j);
     }
 
     mat.print();
-    const res = (try mat.solve()).?;
-    defer res.deinit();
-    std.debug.print("huh: {any} => {d}\n", .{ res.xp, zutils.sum(isize, res.xp) });
-    res.Ns.print();
-    return @intCast(zutils.sum(isize, res.xp));
+    const sol = try mat.solve();
+    var s: f64 = 0;
+    if (sol) |res| {
+        defer res.deinit();
+        s = zutils.sum(f64, res.xp);
+        std.debug.print("huh: {any} => {d}\n", .{ res.xp, s });
+        if (res.Ns) |*Ns| Ns.print();
+    } else {
+        const R = try mat.rref();
+        defer R.deinit();
+        R.print();
+        std.debug.panic("No solution ^\n", .{});
+    }
+    return if (s >= 0) @intFromFloat(s) else 0;
 }
 
 fn parse(gpa: std.mem.Allocator, input: []const u8) ![]Machine {

@@ -67,7 +67,7 @@ fn matReduceU(comptime T: type, mat: anytype) void {
         const pCol = ret[1];
 
         // ensure pivot is in correct row
-        if (pRow != pCol) {
+        if (pRow > finishedRows) {
             swapRow(mat, pRow, finishedRows);
             pRow = finishedRows;
         }
@@ -88,6 +88,7 @@ fn matReduceU(comptime T: type, mat: anytype) void {
             }
         }
 
+        mat.print();
         finishedRows += 1;
     }
 }
@@ -126,7 +127,7 @@ fn matReduceRref(comptime T: type, mat: anytype) void {
 fn SolutionIO(comptime T: type) type {
     return struct {
         xp: []T,
-        Ns: *Matrix(T),
+        Ns: ?*Matrix(T),
         colTypes: []ColType,
     };
 }
@@ -155,11 +156,15 @@ fn matSolve(comptime T: type, mat: anytype, sio: SolutionIO(T)) bool {
         sio.colTypes[pCol] = .pivot;
     }
 
+    if (sio.Ns == null) return true;
+
+    var Ns = sio.Ns.?;
+
     // initialize the rows for free variables
     var fi: usize = 0;
     for (sio.colTypes, 0..) |c, ci| {
         if (c == .free) {
-            sio.Ns.atPtr(ci, fi).* = 1;
+            Ns.atPtr(ci, fi).* = 1;
             fi += 1;
         }
     }
@@ -179,7 +184,7 @@ fn matSolve(comptime T: type, mat: anytype, sio: SolutionIO(T)) bool {
         var i: usize = 0;
         for (sio.colTypes, 0..) |c, ci| {
             if (c == .pivot) continue;
-            sio.Ns.atPtr(fi, i).* = -mat.at(pRow, ci);
+            Ns.atPtr(fi, i).* = -mat.at(pRow, ci);
             i += 1;
         }
         // advance past the row in Ns we just handled
@@ -201,11 +206,11 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
         const Self = @This();
         pub const SolutionT = struct {
             xp: [N - 1]T,
-            Ns: Matrix(T),
+            Ns: ?Matrix(T),
             cols: [N - 1]ColType,
 
             pub fn deinit(self: *const @This()) void {
-                self.Ns.deinit();
+                if (self.Ns) |*Ns| Ns.deinit();
             }
         };
 
@@ -274,14 +279,14 @@ pub fn MatrixC(comptime T: type, comptime M: usize, comptime N: usize) type {
             const R = self.rref();
             const rank = matRank(R);
             // N-1 because we assume augmented matrix form
-            const nFree = N - 1 - rank;
+            const nVars = N - 1;
             var soln = SolutionT{
-                .Ns = try Matrix(T).zeros(gpa, N - 1, nFree),
+                .Ns = if (nVars > rank) try Matrix(T).zeros(gpa, nVars, nVars - rank) else null,
                 .xp = undefined,
                 .cols = undefined,
             };
             if (!matSolve(T, R, .{
-                .Ns = &soln.Ns,
+                .Ns = if (soln.Ns) |*nS| nS else null,
                 .xp = &soln.xp,
                 .colTypes = &soln.cols,
             })) {
@@ -315,14 +320,14 @@ pub fn Matrix(comptime T: type) type {
         const Self = @This();
         pub const SolutionT = struct {
             xp: []T,
-            Ns: Matrix(T),
+            Ns: ?Matrix(T),
             cols: []ColType,
             gpa: std.mem.Allocator,
 
             pub fn deinit(self: *const @This()) void {
                 self.gpa.free(self.xp);
                 self.gpa.free(self.cols);
-                self.Ns.deinit();
+                if (self.Ns) |*Ns| Ns.deinit();
             }
         };
 
@@ -412,16 +417,16 @@ pub fn Matrix(comptime T: type) type {
             defer R.deinit();
             const rank = matRank(R);
             // N-1 because we assume augmented matrix form
-            const nFree = self.N - 1 - rank;
+            const nVars = self.N - 1;
             var soln = SolutionT{
-                .Ns = try Matrix(T).zeros(self.gpa, self.N - 1, nFree),
-                .xp = try self.gpa.alloc(T, self.N - 1),
-                .cols = try self.gpa.alloc(ColType, self.N - 1),
+                .Ns = if (nVars > rank) try Matrix(T).zeros(self.gpa, nVars, nVars - rank) else null,
+                .xp = try self.gpa.alloc(T, nVars),
+                .cols = try self.gpa.alloc(ColType, nVars),
                 .gpa = self.gpa,
             };
             if (!matSolve(T, R, .{
                 .xp = soln.xp,
-                .Ns = &soln.Ns,
+                .Ns = if (soln.Ns) |*nS| nS else null,
                 .colTypes = soln.cols,
             })) {
                 soln.deinit();
@@ -492,7 +497,7 @@ test "Matrix.solve" {
         1,  0,
         0,  -1,
         0,  1,
-    }, res.Ns.data);
+    }, res.Ns.?.data);
 }
 
 test "Mat.rref" {
@@ -511,14 +516,14 @@ test "Mat.rref" {
         },
     }));
 
-    const M2 = MatrixCi(3, 3){
+    const M2 = MatrixCf(3, 3){
         .data = .{
             2,  1,  1,
             4,  -6, 0,
             -2, 7,  2,
         },
     };
-    try std.testing.expect(M2.rref().eql(&MatrixCi(3, 3){
+    try std.testing.expect(M2.rref().eql(&MatrixCf(3, 3){
         .data = .{
             1, 0, 0,
             0, 1, 0,
@@ -567,7 +572,7 @@ test "Mat.solve" {
         1,  0,
         0,  -1,
         0,  1,
-    }, res.Ns.data);
+    }, res.Ns.?.data);
 
     const M2 = MatrixCi(3, 5){
         .data = .{
@@ -589,7 +594,7 @@ test "Mat.solve" {
         1,  0,
         0,  -1,
         0,  1,
-    }, res2.Ns.data);
+    }, res2.Ns.?.data);
 }
 
 test "eye" {
@@ -620,7 +625,7 @@ test "Mat.solveNs" {
         1,
         0,
         0,
-    }, res.Ns.data);
+    }, res.Ns.?.data);
 }
 
 test "Mat.det" {
