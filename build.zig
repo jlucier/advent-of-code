@@ -1,6 +1,44 @@
 const std = @import("std");
 
 const YEAR_DIRS = [_][]const u8{ "2022", "2024", "2025" };
+const DEPEND_ON_Z3 = [_][]const u8{"2025_10"};
+
+fn addZ3(b: *std.Build, comps: []*std.Build.Step.Compile) void {
+    // Configure
+    const z3_src = "vendor/z3";
+    const z3_build = "zig-out/z3-build";
+    const cmake_configure = b.addSystemCommand(&.{
+        "cmake",
+        "-S",
+        z3_src,
+        "-B",
+        z3_build,
+        "-DZ3_BUILD_LIBZ3_SHARED=ON",
+        "-DZ3_BUILD_TESTS=OFF",
+        "-DCMAKE_BUILD_TYPE=Release",
+    });
+
+    // Build
+    const cmake_build = b.addSystemCommand(&.{
+        "cmake",
+        "--build",
+        z3_build,
+        "--config",
+        "Release",
+        "--parallel",
+    });
+    cmake_build.step.dependOn(&cmake_configure.step);
+
+    for (comps) |c| {
+        c.step.dependOn(&cmake_build.step);
+        c.addIncludePath(b.path(b.pathJoin(&.{ z3_src, "/src/api" })));
+        c.addIncludePath(b.path(b.pathJoin(&.{ z3_build, "/include" })));
+
+        c.addLibraryPath(b.path(z3_build));
+        c.linkSystemLibrary("z3");
+        c.linkLibCpp();
+    }
+}
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -21,6 +59,9 @@ pub fn build(b: *std.Build) !void {
 
     // iterate through day files and add targets
     const cwd = std.fs.cwd();
+    var z3_dependants = std.array_list.Managed(*std.Build.Step.Compile).init(std.heap.page_allocator);
+    defer z3_dependants.deinit();
+
     for (YEAR_DIRS) |y| {
         const year = try cwd.openDir(y, .{ .iterate = true });
         const run_year_step = b.step(b.fmt("run_{s}", .{y}), b.fmt("Run all in {s}", .{y}));
@@ -64,11 +105,22 @@ pub fn build(b: *std.Build) !void {
                     const test_step = b.step(b.fmt("test_{s}", .{exename}), b.fmt("Run tests for {s}", .{exename}));
                     test_step.dependOn(&run_test.step);
                     all_test_step.dependOn(&run_test.step);
+
+                    for (DEPEND_ON_Z3) |exe| {
+                        if (std.mem.eql(u8, exe, exename)) {
+                            try z3_dependants.append(day_exe);
+                            try z3_dependants.append(day_test);
+                            break;
+                        }
+                    }
                 },
                 else => {
                     continue;
                 },
             }
         }
+    }
+    if (z3_dependants.items.len > 0) {
+        addZ3(b, z3_dependants.items);
     }
 }
