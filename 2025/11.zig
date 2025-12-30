@@ -3,6 +3,7 @@ const zutils = @import("zutils");
 
 const NodeList = std.array_list.Managed([]const u8);
 const Graph = std.array_hash_map.StringArrayHashMap(NodeList);
+const SearchCache = std.array_hash_map.StringArrayHashMap(usize);
 
 fn deinitGraph(g: *Graph) void {
     var iter = g.iterator();
@@ -37,45 +38,54 @@ fn parse(gpa: std.mem.Allocator, input: []const u8) !Graph {
     return graph;
 }
 
-const Path = struct {
-    node: []const u8,
-    dac: bool = false,
-    fft: bool = false,
-};
+fn explore(
+    g: *const Graph,
+    cache: *SearchCache,
+    curr: []const u8,
+    end: []const u8,
+) usize {
+    if (std.mem.eql(u8, curr, end))
+        return 1;
+
+    // not last, DFS into neighbors
+    var total: usize = 0;
+    const neighbors = g.getPtr(curr);
+    if (neighbors == null) return 0;
+
+    for (neighbors.?.items) |next| {
+        if (cache.get(next)) |nv| {
+            total += nv;
+        } else {
+            // miss, recurse
+            total += explore(g, cache, next, end);
+        }
+    }
+
+    // update cache for this node
+    cache.putAssumeCapacity(curr, total);
+    return total;
+}
 
 fn paths(
     gpa: std.mem.Allocator,
     g: *const Graph,
     start: []const u8,
-    requireNodes: bool,
+    end: []const u8,
 ) !usize {
-    var queue = std.array_list.Managed(Path).init(gpa);
-    defer queue.deinit();
-    try queue.append(.{
-        .node = start,
-    });
+    var allNodes = SearchCache.init(gpa);
+    defer allNodes.deinit();
+    try allNodes.ensureTotalCapacity(g.count());
 
-    var out: usize = 0;
-    while (queue.pop()) |curr| {
-        if (std.mem.eql(u8, curr.node, "out")) {
-            out += if (requireNodes)
-                @intFromBool(curr.dac and curr.fft)
-            else
-                1;
-            continue;
-        }
+    return explore(g, &allNodes, start, end);
+}
 
-        for (g.get(curr.node).?.items) |next| {
-            if (!std.mem.eql(u8, next, start)) {
-                try queue.append(.{
-                    .node = next,
-                    .dac = curr.dac or std.mem.eql(u8, next, "dac"),
-                    .fft = curr.fft or std.mem.eql(u8, next, "fft"),
-                });
-            }
-        }
-    }
-    return out;
+fn p2(gpa: std.mem.Allocator, g: *const Graph, start: []const u8, end: []const u8) !usize {
+    return try paths(gpa, g, start, "dac") //
+    * try paths(gpa, g, "dac", "fft") //
+    * try paths(gpa, g, "fft", end) //
+    + try paths(gpa, g, start, "fft") //
+        * try paths(gpa, g, "fft", "dac") //
+        * try paths(gpa, g, "dac", end);
 }
 
 fn solve(gpa: std.mem.Allocator, input: []const u8) ![2]usize {
@@ -83,8 +93,8 @@ fn solve(gpa: std.mem.Allocator, input: []const u8) ![2]usize {
     defer deinitGraph(&g);
 
     return .{
-        try paths(gpa, &g, "you", false),
-        try paths(gpa, &g, "svr", true),
+        try paths(gpa, &g, "you", "out"),
+        try p2(gpa, &g, "svr", "out"),
     };
 }
 
@@ -104,7 +114,7 @@ test "example.p1" {
 
     var g = try parse(std.testing.allocator, input);
     defer deinitGraph(&g);
-    try std.testing.expectEqual(5, try paths(std.testing.allocator, &g, "you", false));
+    try std.testing.expectEqual(5, try paths(std.testing.allocator, &g, "you", "out"));
 }
 
 test "example.p2" {
@@ -125,7 +135,7 @@ test "example.p2" {
     ;
     var g = try parse(std.testing.allocator, input);
     defer deinitGraph(&g);
-    try std.testing.expectEqual(2, try paths(std.testing.allocator, &g, "svr", true));
+    try std.testing.expectEqual(2, try p2(std.testing.allocator, &g, "svr", "out"));
 }
 
 pub fn main() !void {
